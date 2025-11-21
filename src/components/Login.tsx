@@ -8,8 +8,10 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import authService from '../services/authService';
 
 interface LoginProps {
   onLogin: () => void;
@@ -21,18 +23,27 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
+      setError('Please enter email and password');
       return;
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    setError(null);
+    
+    try {
+      await authService.login({ email, password });
       onLogin();
-    }, 1500);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Login failed';
+      setError(errorMessage);
+      Alert.alert('Login Failed', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleFaceID = () => {
@@ -71,6 +82,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
 
         {/* Form */}
         <View style={styles.form}>
+          {/* Error Message */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Icon name="alert-circle" size={16} color="#ef4444" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           {/* Email Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
@@ -219,6 +238,23 @@ const styles = StyleSheet.create({
   },
   form: {
     flex: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    marginBottom: 24,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#ef4444',
+    lineHeight: 18,
   },
   inputGroup: {
     marginBottom: 24,

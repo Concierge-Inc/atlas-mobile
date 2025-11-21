@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import authService from './src/services/authService';
 import { ViewState, ServiceCategory } from './src/utils/types';
 import BookingFlow from './src/components/BookingFlow';
 import Concierge from './src/components/Concierge';
@@ -40,9 +41,13 @@ const App: React.FC = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const authToken = await AsyncStorage.getItem('authToken');
-      if (authToken) {
-        setIsAuthenticated(true);
+      const isAuth = await authService.isAuthenticated();
+      if (isAuth) {
+        // Verify token is still valid by fetching profile
+        const user = await authService.getProfile();
+        if (user) {
+          setIsAuthenticated(true);
+        }
       }
     } catch (error) {
       console.error('Auth check error:', error);
@@ -52,18 +57,14 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async () => {
-    try {
-      // Store auth token
-      await AsyncStorage.setItem('authToken', 'secure-token-' + Date.now());
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Login error:', error);
-    }
+    // Auth is handled by Login/Registration components
+    // Just update the state here
+    setIsAuthenticated(true);
   };
 
   const handleLogout = async () => {
     try {
-      await AsyncStorage.removeItem('authToken');
+      await authService.logout();
       setIsAuthenticated(false);
       setAuthView('LOGIN');
       setView(ViewState.HOME);

@@ -8,8 +8,10 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import authService from '../services/authService';
 
 interface RegistrationProps {
   onRegister: () => void;
@@ -29,22 +31,75 @@ const Registration: React.FC<RegistrationProps> = ({ onRegister, onSwitchToLogin
   const [phone, setPhone] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleNextStep = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      if (step === 'CREDENTIALS') {
-        setStep('PERSONAL');
-      } else if (step === 'PERSONAL') {
-        setStep('VERIFICATION');
-      } else if (step === 'VERIFICATION') {
+  const handleNextStep = async () => {
+    setError(null);
+    
+    // Validation
+    if (step === 'CREDENTIALS') {
+      if (!email || !password || !confirmPassword) {
+        setError('Please fill in all fields');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match');
+        return;
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters');
+        return;
+      }
+      setStep('PERSONAL');
+      return;
+    }
+    
+    if (step === 'PERSONAL') {
+      if (!firstName || !lastName) {
+        setError('Please enter your name');
+        return;
+      }
+      
+      // Call registration API
+      setIsLoading(true);
+      try {
+        await authService.register({
+          email,
+          password,
+          firstName,
+          lastName,
+          phoneNumber: phone || undefined,
+        });
+        
+        // Skip verification for now and go to complete
         setStep('COMPLETE');
         setTimeout(() => {
           onRegister();
         }, 2000);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+        setError(errorMessage);
+        Alert.alert('Registration Failed', errorMessage);
+      } finally {
+        setIsLoading(false);
       }
-    }, 800);
+      return;
+    }
+    
+    if (step === 'VERIFICATION') {
+      if (!verificationCode || verificationCode.length !== 6) {
+        setError('Please enter a valid 6-digit code');
+        return;
+      }
+      setIsLoading(true);
+      setTimeout(() => {
+        setIsLoading(false);
+        setStep('COMPLETE');
+        setTimeout(() => {
+          onRegister();
+        }, 2000);
+      }, 800);
+    }
   };
 
   const handleBack = () => {
@@ -139,6 +194,14 @@ const Registration: React.FC<RegistrationProps> = ({ onRegister, onSwitchToLogin
 
         {/* Form Content */}
         <View style={styles.form}>
+          {/* Error Message */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Icon name="alert-circle" size={16} color="#ef4444" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           {step === 'CREDENTIALS' && (
             <>
               <View style={styles.inputGroup}>
@@ -402,6 +465,23 @@ const styles = StyleSheet.create({
   },
   form: {
     flex: 1,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    marginBottom: 24,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#ef4444',
+    lineHeight: 18,
   },
   inputGroup: {
     marginBottom: 24,
