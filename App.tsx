@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ViewState, ServiceCategory } from './src/utils/types';
 import BookingFlow from './src/components/BookingFlow';
 import Concierge from './src/components/Concierge';
@@ -16,14 +17,60 @@ import Dashboard from './src/components/Dashboard';
 import BookingTracker from './src/components/BookingTracker';
 import Protocol from './src/components/Protocol';
 import Settings from './src/components/Settings';
+import Login from './src/components/Login';
+import Registration from './src/components/Registration';
+
+type AuthView = 'LOGIN' | 'REGISTER' | null;
 
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authView, setAuthView] = useState<AuthView>('LOGIN');
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [view, setView] = useState<ViewState>(ViewState.HOME);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isProtocolOpen, setIsProtocolOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const authToken = await AsyncStorage.getItem('authToken');
+      if (authToken) {
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      // Store auth token
+      await AsyncStorage.setItem('authToken', 'secure-token-' + Date.now());
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error('Login error:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.removeItem('authToken');
+      setIsAuthenticated(false);
+      setAuthView('LOGIN');
+      setView(ViewState.HOME);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   const navigateTo = (newView: ViewState) => {
     setView(newView);
@@ -76,7 +123,7 @@ const App: React.FC = () => {
         return <Concierge />;
       
       case ViewState.PROFILE:
-        return <Dashboard />;
+        return <Dashboard onLogout={handleLogout} />;
       
       case ViewState.HOME:
       default:
@@ -140,6 +187,38 @@ const App: React.FC = () => {
         );
     }
   };
+
+  // Show loading state while checking auth
+  if (isCheckingAuth) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.logoText}>ATLAS</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show auth screens if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
+        {authView === 'LOGIN' ? (
+          <Login 
+            onLogin={handleLogin}
+            onSwitchToRegister={() => setAuthView('REGISTER')}
+          />
+        ) : (
+          <Registration 
+            onRegister={handleLogin}
+            onSwitchToLogin={() => setAuthView('LOGIN')}
+          />
+        )}
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -260,6 +339,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   main: {
     flex: 1,

@@ -302,20 +302,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
                 style={styles.legalLink}
                 onPress={() => setCurrentSection('LEGAL_TERMS')}
               >
-                <Text style={styles.legalLinkText}>Terms & Conditions</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.legalLinkText}>Terms & Conditions</Text>
+          </TouchableOpacity>
+        </View>
 
-            <TouchableOpacity style={styles.logoutButton}>
-              <Icon name="log-out" size={12} color="#737373" />
-              <Text style={styles.logoutText}>SECURE LOGOUT</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        );
-    }
-  };
-
-  return (
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={onLogout}
+        >
+          <Icon name="log-out" size={12} color="#737373" />
+          <Text style={styles.logoutText}>SECURE LOGOUT</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+};  return (
     <View style={styles.container}>
       <Header 
         title={
