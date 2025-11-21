@@ -11,8 +11,14 @@ import Icon from 'react-native-vector-icons/Feather';
 
 type SectionType = 'MAIN' | 'PERSONAL' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
-const Dashboard: React.FC = () => {
-  const [currentSection, setCurrentSection] = useState<SectionType>('MAIN');
+interface DashboardProps {
+  onLogout?: () => void;
+  initialSection?: SectionType;
+  onBack?: () => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack }) => {
+  const [currentSection, setCurrentSection] = useState<SectionType>(initialSection || 'MAIN');
 
   const MenuItem = ({ 
     iconName, 
@@ -41,11 +47,17 @@ const Dashboard: React.FC = () => {
     <View style={styles.header}>
       {currentSection !== 'MAIN' ? (
         <TouchableOpacity 
-          onPress={() => setCurrentSection('MAIN')} 
+          onPress={() => {
+            if (onBack && initialSection) {
+              onBack();
+            } else {
+              setCurrentSection('MAIN');
+            }
+          }} 
           style={styles.backButton}
         >
           <Icon name="arrow-left" size={14} color="#737373" />
-          <Text style={styles.backText}>PROFILE</Text>
+          <Text style={styles.backText}>{onBack ? 'MENU' : 'PROFILE'}</Text>
         </TouchableOpacity>
       ) : (
         <View>

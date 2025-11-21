@@ -14,11 +14,16 @@ import BookingFlow from './src/components/BookingFlow';
 import Concierge from './src/components/Concierge';
 import Dashboard from './src/components/Dashboard';
 import BookingTracker from './src/components/BookingTracker';
+import Protocol from './src/components/Protocol';
+import Settings from './src/components/Settings';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.HOME);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isProtocolOpen, setIsProtocolOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   const navigateTo = (newView: ViewState) => {
     setView(newView);
@@ -129,7 +134,7 @@ const App: React.FC = () => {
 
             {/* Footer Icon */}
             <View style={styles.footer}>
-              <Icon name="command" size={16} color="#404040" strokeWidth={1} />
+              <Icon name="command" size={16} color="#404040" />
             </View>
           </ScrollView>
         );
@@ -143,6 +148,30 @@ const App: React.FC = () => {
       <View style={styles.main}>
         {renderContent()}
 
+        {/* Protocol Overlay */}
+        {isProtocolOpen && (
+          <View style={styles.fullScreenOverlay}>
+            <Protocol onClose={() => setIsProtocolOpen(false)} />
+          </View>
+        )}
+
+        {/* Privacy Overlay */}
+        {isPrivacyOpen && (
+          <View style={styles.fullScreenOverlay}>
+            <Dashboard 
+              initialSection="LEGAL_PRIVACY"
+              onBack={() => setIsPrivacyOpen(false)}
+            />
+          </View>
+        )}
+
+        {/* Settings Overlay */}
+        {isSettingsOpen && (
+          <View style={styles.fullScreenOverlay}>
+            <Settings onClose={() => setIsSettingsOpen(false)} />
+          </View>
+        )}
+
         {/* Menu Overlay */}
         {isMenuOpen && (
           <View style={styles.menuOverlay}>
@@ -150,7 +179,7 @@ const App: React.FC = () => {
               style={styles.menuCloseButton}
               onPress={() => setIsMenuOpen(false)}
             >
-              <Icon name="x" size={20} color="#525252" strokeWidth={1} />
+              <Icon name="x" size={20} color="#525252" />
             </TouchableOpacity>
             
             <View style={styles.menuContent}>
@@ -161,6 +190,15 @@ const App: React.FC = () => {
                   onPress={() => {
                     if (item === 'Concierge') {
                       navigateTo(ViewState.CONCIERGE);
+                    } else if (item === 'Privacy') {
+                      setIsPrivacyOpen(true);
+                      setIsMenuOpen(false);
+                    } else if (item === 'Protocol') {
+                      setIsProtocolOpen(true);
+                      setIsMenuOpen(false);
+                    } else if (item === 'Settings') {
+                      setIsSettingsOpen(true);
+                      setIsMenuOpen(false);
                     }
                   }}
                 >
@@ -194,7 +232,6 @@ const App: React.FC = () => {
                   name={item.icon}
                   size={16}
                   color={isActive ? '#fff' : '#525252'}
-                  strokeWidth={1}
                 />
                 <Text style={[
                   styles.navLabel,
@@ -210,7 +247,7 @@ const App: React.FC = () => {
             style={styles.navItem}
             onPress={() => setIsMenuOpen(true)}
           >
-            <Icon name="menu" size={16} color="#525252" strokeWidth={1} />
+            <Icon name="menu" size={16} color="#525252" />
             <Text style={[styles.navLabel, styles.navLabelInactive]}>Menu</Text>
           </TouchableOpacity>
         </View>
@@ -363,6 +400,15 @@ const styles = StyleSheet.create({
   },
   navLabelInactive: {
     color: '#404040',
+  },
+  fullScreenOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0a0a0a',
+    zIndex: 200,
   },
   menuOverlay: {
     position: 'absolute',
