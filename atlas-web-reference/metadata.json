@@ -1,0 +1,7 @@
+{
+  "name": "ATLAS",
+  "description": "A private, high-trust interface for requesting private air transfer, armoured transport, and close protection services.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ATLAS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              obsidian: '#050505',
+              charcoal: '#0a0a0a',
+              tungsten: '#141414',
+              metal: '#262626',
+              platinum: '#E5E4E2',
+              'off-white': '#F5F5F5',
+            },
+            boxShadow: {
+              'subtle': '0 4px 20px -2px rgba(0, 0, 0, 0.5)',
+              'inner-light': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.03)',
+              'glow': '0 0 30px rgba(255, 255, 255, 0.02)',
+              'instrument': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.4)',
+              'instrument-hover': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 4px 0 rgba(0, 0, 0, 0.5)',
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+              'slide-up': 'slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+              'pulse-slow': 'pulseSlow 6s ease-in-out infinite',
+              'shimmer': 'shimmer 2s linear infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(4px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              slideUp: {
+                '0%': { transform: 'translateY(20px)', opacity: '0' },
+                '100%': { transform: 'translateY(0)', opacity: '1' },
+              },
+              pulseSlow: {
+                '0%, 100%': { opacity: '0.3' },
+                '50%': { opacity: '0.6' },
+              },
+              shimmer: {
+                '0%': { backgroundPosition: '200% 0' },
+                '100%': { backgroundPosition: '-200% 0' }
+              }
+            }
+          },
+        },
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500&family=Playfair+Display:wght@400;500&family=JetBrains+Mono:wght@300&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #050505;
+        color: #e5e5e5;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      /* Hide scrollbar for clean UI */
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
+      
+      .glass-panel {
+        background: rgba(5, 5, 5, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .input-reset {
+        appearance: none;
+        background: transparent;
+        border-radius: 0;
+      }
+
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      
+      /* Custom selection color for premium feel */
+      ::selection {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
