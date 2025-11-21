@@ -73,7 +73,7 @@ const Concierge: React.FC = () => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -96,6 +96,7 @@ const Concierge: React.FC = () => {
         style={styles.messagesContainer}
         contentContainerStyle={styles.messagesList}
         onContentSizeChange={scrollToBottom}
+        keyboardShouldPersistTaps="handled"
       >
         {messages.map((msg) => (
           <View
@@ -154,6 +155,7 @@ const Concierge: React.FC = () => {
             onSubmitEditing={handleSend}
             returnKeyType="send"
             editable={!isLoading}
+            multiline={false}
           />
           <TouchableOpacity
             style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
@@ -226,7 +228,7 @@ const styles = StyleSheet.create({
   messagesList: {
     padding: 24,
     gap: 32,
-    paddingBottom: 128,
+    paddingBottom: 24,
   },
   messageWrapper: {
     gap: 8,
@@ -310,15 +312,12 @@ const styles = StyleSheet.create({
     opacity: 0.3,
   },
   inputContainer: {
-    position: 'absolute',
-    bottom: 80,
-    left: 0,
-    right: 0,
     paddingHorizontal: 24,
     backgroundColor: '#0a0a0a',
     borderTopWidth: 1,
     borderTopColor: '#171717',
-    paddingVertical: 24,
+    paddingVertical: 16,
+    paddingBottom: 90,
   },
   inputWrapper: {
     flexDirection: 'row',

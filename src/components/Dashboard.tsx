@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 
-type SectionType = 'MAIN' | 'PERSONAL' | 'BILLING';
+type SectionType = 'MAIN' | 'PERSONAL' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
 const Dashboard: React.FC = () => {
   const [currentSection, setCurrentSection] = useState<SectionType>('MAIN');
@@ -54,7 +54,14 @@ const Dashboard: React.FC = () => {
         </View>
       )}
       {currentSection !== 'MAIN' && (
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <Text style={styles.sectionTitle}>
+          {currentSection === 'PROMO' ? 'Promotions' : 
+           currentSection === 'NOTIFICATIONS' ? 'Notifications' :
+           currentSection === 'SETTINGS' ? 'User Settings' :
+           currentSection === 'LEGAL_NOTICE' ? 'Legal Notice' :
+           currentSection === 'LEGAL_PRIVACY' ? 'Privacy Policy' :
+           currentSection === 'LEGAL_TERMS' ? 'Terms & Conditions' : title}
+        </Text>
       )}
     </View>
   );
@@ -142,6 +149,96 @@ const Dashboard: React.FC = () => {
           </ScrollView>
         );
       
+      case 'PROMO':
+        return (
+          <ScrollView style={styles.content} contentContainerStyle={styles.promoContent}>
+            <View style={styles.promoCard}>
+              <View style={styles.promoGlow} />
+              <Text style={styles.promoTitle}>Winter Aviation Credit</Text>
+              <Text style={styles.promoDescription}>
+                Receive complimentary ground transport with any international jet charter booked before December 2023.
+              </Text>
+              <View style={styles.promoCodeContainer}>
+                <Text style={styles.promoCode}>CODE: ALTITUDE-23</Text>
+              </View>
+            </View>
+
+            <View style={[styles.promoCard, styles.promoCardExpired]}>
+              <Text style={styles.promoTitleExpired}>Monaco GP Access</Text>
+              <Text style={styles.promoDescriptionExpired}>
+                Exclusive paddock club access included with helicopter transfers.
+              </Text>
+              <View style={styles.promoCodeContainer}>
+                <Text style={styles.promoCodeExpired}>EXPIRED</Text>
+              </View>
+            </View>
+          </ScrollView>
+        );
+      
+      case 'NOTIFICATIONS':
+        return (
+          <ScrollView style={styles.content}>
+            {[
+              { title: 'Route Safety Update', time: '2h ago', text: 'Increased traffic reported on N1 route. Alternative path loaded for 14:00 transfer.', urgent: false },
+              { title: 'Payment Confirmed', time: '1d ago', text: 'Authorization hold for Booking #4922 released.', urgent: false },
+              { title: 'Security Alert', time: '3d ago', text: 'Civil unrest reported near destination sector. Advisory issued.', urgent: true }
+            ].map((note, i) => (
+              <View key={i} style={[styles.notificationItem, note.urgent && styles.notificationUrgent]}>
+                <View style={styles.notificationHeader}>
+                  <Text style={[styles.notificationTitle, note.urgent && styles.notificationTitleUrgent]}>
+                    {note.title}
+                  </Text>
+                  <Text style={styles.notificationTime}>{note.time}</Text>
+                </View>
+                <Text style={styles.notificationText}>{note.text}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        );
+      
+      case 'SETTINGS':
+        const settings = [
+          { label: 'FaceID Authentication', desc: 'Require biometrics for app entry', active: true },
+          { label: 'Real-time Location', desc: 'Allow Ops to track device during active missions', active: true },
+          { label: 'Push Notifications', desc: 'Mission updates and security alerts', active: true },
+          { label: 'Stealth Mode', desc: 'Dim interface and reduce haptics', active: false },
+        ];
+        return (
+          <ScrollView style={styles.content} contentContainerStyle={styles.settingsContent}>
+            {settings.map((setting, i) => (
+              <View key={i} style={styles.settingItem}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>{setting.label}</Text>
+                  <Text style={styles.settingDesc}>{setting.desc}</Text>
+                </View>
+                <View style={[styles.toggleContainer, setting.active && styles.toggleContainerActive]}>
+                  <View style={[styles.toggleKnob, setting.active && styles.toggleKnobActive]} />
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        );
+      
+      case 'LEGAL_PRIVACY':
+      case 'LEGAL_TERMS':
+      case 'LEGAL_NOTICE':
+        return (
+          <ScrollView style={styles.content} contentContainerStyle={styles.legalContent}>
+            <Text style={styles.legalParagraph}>
+              This document constitutes a binding agreement between the Client and ATLAS Secure Logistics. 
+              All data transmission is encrypted using military-grade protocols. Client location data is 
+              retained only for the duration of active missions and is subsequently purged from operational 
+              servers within 24 hours. By using this interface, you acknowledge that ATLAS acts as a 
+              facilitator for third-party armoured and aviation assets. Force majeure clauses apply to all 
+              high-risk environment operations.
+            </Text>
+            <Text style={styles.legalParagraph}>
+              Strict confidentiality is maintained regarding all client movements. Disclosure of operational 
+              details to unauthorized parties constitutes a breach of service terms.
+            </Text>
+          </ScrollView>
+        );
+      
       default:
         return (
           <ScrollView style={styles.content} contentContainerStyle={styles.mainContent}>
@@ -160,30 +257,39 @@ const Dashboard: React.FC = () => {
               <MenuItem 
                 iconName="tag" 
                 label="PROMOTIONS" 
-                onPress={() => {}} 
+                onPress={() => setCurrentSection('PROMO')} 
                 value="1 Active"
               />
               <MenuItem 
                 iconName="bell" 
                 label="NOTIFICATIONS" 
-                onPress={() => {}} 
+                onPress={() => setCurrentSection('NOTIFICATIONS')} 
               />
               <MenuItem 
                 iconName="settings" 
                 label="USER SETTINGS" 
-                onPress={() => {}} 
+                onPress={() => setCurrentSection('SETTINGS')} 
               />
             </View>
 
             <View style={styles.legalSection}>
               <Text style={styles.legalHeader}>LEGAL & COMPLIANCE</Text>
-              <TouchableOpacity style={styles.legalLink}>
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => setCurrentSection('LEGAL_NOTICE')}
+              >
                 <Text style={styles.legalLinkText}>Legal Notice</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.legalLink}>
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => setCurrentSection('LEGAL_PRIVACY')}
+              >
                 <Text style={styles.legalLinkText}>Privacy Policy</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.legalLink}>
+              <TouchableOpacity 
+                style={styles.legalLink}
+                onPress={() => setCurrentSection('LEGAL_TERMS')}
+              >
                 <Text style={styles.legalLinkText}>Terms & Conditions</Text>
               </TouchableOpacity>
             </View>
@@ -444,6 +550,172 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
     fontFamily: 'Courier New',
+  },
+  promoContent: {
+    paddingTop: 32,
+    paddingHorizontal: 32,
+    gap: 24,
+  },
+  promoCard: {
+    borderWidth: 1,
+    borderColor: '#262626',
+    backgroundColor: 'rgba(64,64,64,0.1)',
+    padding: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  promoGlow: {
+    position: 'absolute',
+    right: -16,
+    top: -16,
+    width: 64,
+    height: 64,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 32,
+  },
+  promoTitle: {
+    fontSize: 14,
+    color: '#fff',
+    fontFamily: 'Georgia',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  promoDescription: {
+    fontSize: 9,
+    color: '#737373',
+    lineHeight: 16,
+    marginBottom: 16,
+  },
+  promoCodeContainer: {
+    alignSelf: 'flex-start',
+  },
+  promoCode: {
+    fontSize: 9,
+    color: '#fff',
+    fontFamily: 'Courier New',
+    borderWidth: 1,
+    borderColor: '#525252',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  promoCardExpired: {
+    opacity: 0.5,
+    borderColor: '#1a1a1a',
+  },
+  promoTitleExpired: {
+    fontSize: 14,
+    color: '#525252',
+    fontFamily: 'Georgia',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
+  promoDescriptionExpired: {
+    fontSize: 9,
+    color: '#404040',
+    lineHeight: 16,
+    marginBottom: 16,
+  },
+  promoCodeExpired: {
+    fontSize: 9,
+    color: '#404040',
+    fontFamily: 'Courier New',
+    borderWidth: 1,
+    borderColor: '#262626',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  notificationItem: {
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#171717',
+  },
+  notificationUrgent: {
+    backgroundColor: 'rgba(127,29,29,0.1)',
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  notificationTitle: {
+    fontSize: 12,
+    color: '#fff',
+    fontWeight: '500',
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  notificationTitleUrgent: {
+    color: '#fca5a5',
+  },
+  notificationTime: {
+    fontSize: 9,
+    color: '#525252',
+    fontFamily: 'Courier New',
+    marginLeft: 12,
+  },
+  notificationText: {
+    fontSize: 10,
+    color: '#737373',
+    lineHeight: 18,
+  },
+  settingsContent: {
+    paddingTop: 32,
+    paddingHorizontal: 32,
+    gap: 24,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: 16,
+  },
+  settingLabel: {
+    fontSize: 12,
+    color: '#d4d4d4',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  settingDesc: {
+    fontSize: 9,
+    color: '#525252',
+    lineHeight: 14,
+  },
+  toggleContainer: {
+    width: 32,
+    height: 16,
+    borderRadius: 16,
+    backgroundColor: '#262626',
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  toggleContainerActive: {
+    backgroundColor: '#fff',
+  },
+  toggleKnob: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#0a0a0a',
+    position: 'absolute',
+    left: 2,
+  },
+  toggleKnobActive: {
+    left: 18,
+  },
+  legalContent: {
+    paddingTop: 32,
+    paddingHorizontal: 32,
+  },
+  legalParagraph: {
+    fontSize: 10,
+    color: '#737373',
+    lineHeight: 20,
+    textAlign: 'justify',
+    marginBottom: 16,
   },
 });
 

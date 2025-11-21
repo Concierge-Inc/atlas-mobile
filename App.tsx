@@ -18,9 +18,11 @@ import BookingTracker from './src/components/BookingTracker';
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>(ViewState.HOME);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navigateTo = (newView: ViewState) => {
     setView(newView);
+    setIsMenuOpen(false);
     if (newView === ViewState.HOME) {
       setSelectedCategory(null);
     }
@@ -141,6 +143,38 @@ const App: React.FC = () => {
       <View style={styles.main}>
         {renderContent()}
 
+        {/* Menu Overlay */}
+        {isMenuOpen && (
+          <View style={styles.menuOverlay}>
+            <TouchableOpacity 
+              style={styles.menuCloseButton}
+              onPress={() => setIsMenuOpen(false)}
+            >
+              <Icon name="x" size={20} color="#525252" strokeWidth={1} />
+            </TouchableOpacity>
+            
+            <View style={styles.menuContent}>
+              {['Protocol', 'Privacy', 'Concierge', 'Settings'].map((item) => (
+                <TouchableOpacity 
+                  key={item}
+                  style={styles.menuItem}
+                  onPress={() => {
+                    if (item === 'Concierge') {
+                      navigateTo(ViewState.CONCIERGE);
+                    }
+                  }}
+                >
+                  <Text style={styles.menuItemText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <View style={styles.menuFooter}>
+              <Text style={styles.menuFooterText}>ENCRYPTED • V 2.5.0</Text>
+            </View>
+          </View>
+        )}
+
         {/* Bottom Navigation */}
         <View style={styles.bottomNav}>
           {[
@@ -172,9 +206,12 @@ const App: React.FC = () => {
             );
           })}
           
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity 
+            style={styles.navItem}
+            onPress={() => setIsMenuOpen(true)}
+          >
             <Icon name="menu" size={16} color="#525252" strokeWidth={1} />
-            <Text style={styles.navLabelInactive}>Menu</Text>
+            <Text style={[styles.navLabel, styles.navLabelInactive]}>Menu</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -326,6 +363,48 @@ const styles = StyleSheet.create({
   },
   navLabelInactive: {
     color: '#404040',
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#0a0a0a',
+    zIndex: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuCloseButton: {
+    position: 'absolute',
+    top: 32,
+    right: 32,
+    padding: 16,
+    zIndex: 101,
+  },
+  menuContent: {
+    gap: 40,
+    alignItems: 'center',
+  },
+  menuItem: {
+    paddingVertical: 8,
+  },
+  menuItemText: {
+    fontSize: 18,
+    color: '#737373',
+    letterSpacing: 2,
+    fontWeight: '300',
+    textTransform: 'uppercase',
+  },
+  menuFooter: {
+    position: 'absolute',
+    bottom: 48,
+  },
+  menuFooterText: {
+    fontSize: 9,
+    color: '#404040',
+    letterSpacing: 3,
+    fontWeight: '600',
   },
 });
 
