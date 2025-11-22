@@ -22,7 +22,7 @@ export interface Booking {
   bookingNumber: string;
   assetName: string;
   serviceType: number;
-  status: 'Pending' | 'Confirmed' | 'Active' | 'Completed' | 'Cancelled';
+  status: number; // Backend returns enum as number (0=Pending, 1=Confirmed, 2=Active, 3=Completed, 4=Cancelled)
   serviceDate: string;
   pickupLocation: string;
   dropoffLocation: string;

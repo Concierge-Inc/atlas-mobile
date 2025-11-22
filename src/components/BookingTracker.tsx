@@ -61,9 +61,27 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
   };
 
   const getBookingStatus = (booking: ApiBooking): 'UPCOMING' | 'PAST' | 'CANCELLED' => {
-    if (booking.status === 'Cancelled') return 'CANCELLED';
-    if (booking.status === 'Completed') return 'PAST';
+    if (booking.status === 4) return 'CANCELLED'; // Cancelled
+    if (booking.status === 3) return 'PAST'; // Completed
     return 'UPCOMING';
+  };
+
+  const getStatusText = (status: number): string => {
+    // Map the status enum number to readable text
+    switch (status) {
+      case 0:
+        return 'Pending';
+      case 1:
+        return 'Confirmed';
+      case 2:
+        return 'Active';
+      case 3:
+        return 'Completed';
+      case 4:
+        return 'Cancelled';
+      default:
+        return `Status ${status}`; // fallback
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -174,8 +192,8 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
                       color="#a3a3a3" 
                     />
                   </View>
-                  <View>
-                    <Text style={styles.serviceType}>{booking.assetName}</Text>
+                  <View style={styles.textContainer}>
+                    <Text style={styles.serviceType} numberOfLines={2}>{booking.assetName}</Text>
                     <Text style={styles.bookingId}>#{booking.id.slice(0, 8)}</Text>
                   </View>
                 </View>
@@ -185,7 +203,7 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
                     styles.statusDot,
                     { backgroundColor: getStatusColor(getBookingStatus(booking)) }
                   ]} />
-                  <Text style={styles.statusLabel}>{booking.status}</Text>
+                  <Text style={styles.statusLabel}>{getStatusText(booking.status)}</Text>
                 </View>
               </View>
 
@@ -211,7 +229,13 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
                 <View style={styles.detailRow}>
                   <Icon name="dollar-sign" size={12} color="#737373" />
                   <Text style={styles.detailText}>
-                    {booking.estimatedCost ? formatCurrency(booking.estimatedCost.amount, booking.estimatedCost.currency) : 'TBD'}
+                    {(() => {
+                      console.log('💰 CPO Badge - estimatedCost:', booking.estimatedCost);
+                      console.log('💰 CPO Badge - amount:', booking.estimatedCost?.amount);
+                      console.log('💰 CPO Badge - currency:', booking.estimatedCost?.currency);
+                      console.log('💰 CPO Badge - formatted:', booking.estimatedCost ? formatCurrency(booking.estimatedCost.amount, booking.estimatedCost.currency) : 'TBD');
+                      return booking.estimatedCost ? formatCurrency(booking.estimatedCost.amount, booking.estimatedCost.currency) : 'TBD';
+                    })()}
                   </Text>
                 </View>
                 {booking.bookingNumber && (
@@ -297,10 +321,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 12,
   },
   cardHeaderLeft: {
     flexDirection: 'row',
     gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  textContainer: {
+    flex: 1,
+    minWidth: 0,
   },
   iconContainer: {
     width: 32,
@@ -326,12 +358,13 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.05)',
     backgroundColor: 'rgba(23,23,23,0.5)',
+    flexShrink: 0,
   },
   statusDot: {
     width: 4,
@@ -350,6 +383,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0.8,
     marginBottom: 16,
+    flexWrap: 'wrap',
   },
   details: {
     gap: 8,
@@ -361,12 +395,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    flexWrap: 'wrap',
   },
   detailText: {
     fontSize: 9,
     color: '#737373',
     fontFamily: 'Courier New',
-    flex: 1,
   },
   loadingContainer: {
     width: width * 0.75,

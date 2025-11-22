@@ -51,6 +51,10 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
       setLoadingAssets(true);
       const assetsData = await assetsService.getAssets({ category });
       console.log(`✅ Loaded ${assetsData.length} assets for category ${category}`);
+      if (assetsData.length > 0) {
+        console.log('💰 First asset hourlyRate:', JSON.stringify(assetsData[0].hourlyRate, null, 2));
+        console.log('💰 First asset full data:', JSON.stringify(assetsData[0], null, 2));
+      }
       setAssets(assetsData);
     } catch (error) {
       console.error('Failed to load assets:', error);
@@ -345,10 +349,19 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
 
             {/* Review Mission Button */}
             <TouchableOpacity 
-              style={styles.primaryButton} 
+              style={[
+                styles.primaryButton,
+                (!pickupLocation.trim() || !destination.trim()) && styles.primaryButtonDisabled
+              ]} 
               onPress={() => setStep(3)}
+              disabled={!pickupLocation.trim() || !destination.trim()}
             >
-              <Text style={styles.primaryButtonText}>REVIEW MISSION</Text>
+              <Text style={[
+                styles.primaryButtonText,
+                (!pickupLocation.trim() || !destination.trim()) && styles.primaryButtonTextDisabled
+              ]}>
+                REVIEW MISSION
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -749,11 +762,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fff',
   },
+  primaryButtonDisabled: {
+    backgroundColor: '#262626',
+    borderColor: '#262626',
+    opacity: 0.5,
+  },
   primaryButtonText: {
     fontSize: 9,
     color: '#000',
     fontWeight: '700',
     letterSpacing: 2.5,
+  },
+  primaryButtonTextDisabled: {
+    color: '#525252',
   },
   secondaryButton: {
     backgroundColor: '#171717',
