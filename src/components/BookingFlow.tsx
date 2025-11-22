@@ -10,11 +10,14 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/Feather';
 import { Asset, ServiceCategory } from '../utils/types';
 import { ASSETS } from '../utils/constants';
+import bookingsService from '../services/bookingsService';
+import signalrService from '../services/signalrService';
 
 const { width } = Dimensions.get('window');
 
@@ -34,8 +37,31 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
   const [timing, setTiming] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
 
   const assets = ASSETS.filter(a => a.category === category);
+
+  // Subscribe to booking updates when booking is created
+  useEffect(() => {
+    if (createdBookingId) {
+      signalrService.subscribeToBooking(createdBookingId);
+      
+      const unsubscribeStatus = signalrService.onBookingStatusChanged((update) => {
+        console.log('Booking status changed:', update);
+        Alert.alert('Booking Update', `Status: ${update.status}${update.message ? '\n' + update.message : ''}`);
+      });
+
+      const unsubscribeUpdate = signalrService.onBookingUpdate((update) => {
+        console.log('Booking updated:', update);
+      });
+
+      return () => {
+        signalrService.unsubscribeFromBooking(createdBookingId);
+        unsubscribeStatus();
+        unsubscribeUpdate();
+      };
+    }
+  }, [createdBookingId]);
 
   const handleAssetSelect = (asset: Asset) => {
     if (!asset.available) return;
@@ -43,12 +69,51 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
     setStep(2);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (!selectedAsset || !pickupLocation || !destination || !timing) {
+      Alert.alert('Missing Information', 'Please fill in all required fields');
+      return;
+    }
+
     setIsProcessing(true);
-    setTimeout(() => {
+    
+    try {
+      // Calculate end date (assuming 4 hours for demo, could be calculated differently)
+      const startDate = new Date(timing);
+      const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000);
+
+      // Create booking via API
+      const booking = await bookingsService.createBooking({
+        assetId: selectedAsset.id,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        pickupLocation,
+        dropoffLocation: destination,
+        notes: includeProtection ? 'CPO protection detail added' : undefined,
+      });
+
+      console.log('✅ Booking created:', booking.id);
+      setCreatedBookingId(booking.id);
+
+      // Simulate processing delay for UI
+      setTimeout(() => {
+        setIsProcessing(false);
+        Alert.alert(
+          'Booking Confirmed',
+          `Your ${getCategoryTitle(category)} booking has been created successfully!`,
+          [
+            {
+              text: 'OK',
+              onPress: onComplete,
+            },
+          ]
+        );
+      }, 2000);
+    } catch (error: any) {
+      console.error('Booking creation error:', error);
       setIsProcessing(false);
-      onComplete();
-    }, 3000);
+      Alert.alert('Booking Failed', error.message || 'Failed to create booking. Please try again.');
+    }
   };
 
   const formatCurrency = (val: number) => 

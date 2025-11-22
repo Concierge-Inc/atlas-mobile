@@ -11,6 +11,7 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from './src/services/authService';
+import signalrService from './src/services/signalrService';
 import { ViewState, ServiceCategory } from './src/utils/types';
 import BookingFlow from './src/components/BookingFlow';
 import Concierge from './src/components/Concierge';
@@ -47,6 +48,14 @@ const App: React.FC = () => {
         const user = await authService.getProfile();
         if (user) {
           setIsAuthenticated(true);
+          
+          // Start SignalR connection for already authenticated users
+          try {
+            await signalrService.start();
+            console.log('✅ SignalR connected on app start');
+          } catch (error) {
+            console.error('❌ Failed to start SignalR on app start:', error);
+          }
         }
       }
     } catch (error) {
@@ -60,10 +69,22 @@ const App: React.FC = () => {
     // Auth is handled by Login/Registration components
     // Just update the state here
     setIsAuthenticated(true);
+    
+    // Start SignalR connection after successful login
+    try {
+      await signalrService.start();
+      console.log('✅ SignalR connected after login');
+    } catch (error) {
+      console.error('❌ Failed to start SignalR:', error);
+    }
   };
 
   const handleLogout = async () => {
     try {
+      // Stop SignalR connection before logout
+      await signalrService.stop();
+      console.log('✅ SignalR disconnected');
+      
       await authService.logout();
       setIsAuthenticated(false);
       setAuthView('LOGIN');

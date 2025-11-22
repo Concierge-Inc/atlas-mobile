@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import authService, { UserDto } from '../services/authService';
+import bookingsService, { Booking } from '../services/bookingsService';
+import notificationsService from '../services/notificationsService';
 
-type SectionType = 'MAIN' | 'PERSONAL' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
+type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
 interface DashboardProps {
   onLogout?: () => void;
@@ -19,6 +24,85 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack }) => {
   const [currentSection, setCurrentSection] = useState<SectionType>(initialSection || 'MAIN');
+  const [user, setUser] = useState<UserDto | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+
+  // Form fields for editing
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+
+  // Handle phone number input (only numbers, spaces, +, -, (, ))
+  const handlePhoneChange = (text: string) => {
+    // Allow only numbers and phone formatting characters
+    const cleaned = text.replace(/[^0-9+\-() ]/g, '');
+    setPhoneNumber(cleaned);
+  };
+
+  // Check if profile has been modified
+  const hasProfileChanged = () => {
+    if (!user) return false;
+    return (
+      firstName !== user.firstName ||
+      lastName !== user.lastName ||
+      phoneNumber !== (user.phoneNumber || '')
+    );
+  };
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      const [userData, bookingsData, notifCount] = await Promise.all([
+        authService.getProfile(),
+        bookingsService.getBookings({ page: 1, pageSize: 5 }).catch(() => ({ data: [], totalCount: 0 })),
+        notificationsService.getUnreadCount().catch(() => 0),
+      ]);
+
+      if (userData) {
+        setUser(userData);
+        setFirstName(userData.firstName);
+        setLastName(userData.lastName);
+        setPhoneNumber(userData.phoneNumber || '');
+      }
+      setBookings(bookingsData.data || []);
+      setUnreadCount(notifCount);
+    } catch (error) {
+      console.error('Failed to load user data:', error);
+      Alert.alert('Error', 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    try {
+      setUpdating(true);
+      await authService.updateProfile({
+        firstName,
+        lastName,
+        phoneNumber,
+      });
+      
+      // Reload user data
+      const userData = await authService.getProfile();
+      setUser(userData);
+      
+      Alert.alert('Success', 'Profile updated successfully');
+      setCurrentSection('MAIN');
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      Alert.alert('Error', error.message || 'Failed to update profile');
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const MenuItem = ({ 
     iconName, 
@@ -62,12 +146,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
       ) : (
         <View>
           <Text style={styles.headerTitle}>Client Profile</Text>
-          <Text style={styles.clientId}>ID: 8849-ALPHA</Text>
+          <Text style={styles.clientId}>
+            {user ? `${user.firstName} ${user.lastName}` : 'Loading...'}
+          </Text>
         </View>
       )}
       {currentSection !== 'MAIN' && (
         <Text style={styles.sectionTitle}>
-          {currentSection === 'PROMO' ? 'Promotions' : 
+          {currentSection === 'PHONE' ? 'Phone Number' :
+           currentSection === 'PROMO' ? 'Promotions' : 
            currentSection === 'NOTIFICATIONS' ? 'Notifications' :
            currentSection === 'SETTINGS' ? 'User Settings' :
            currentSection === 'LEGAL_NOTICE' ? 'Legal Notice' :
@@ -84,41 +171,96 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
         return (
           <ScrollView style={styles.content} contentContainerStyle={styles.formContent}>
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>FULL NAME</Text>
+              <Text style={styles.inputLabel}>FIRST NAME</Text>
               <TextInput
                 style={styles.textInput}
-                defaultValue="Jonathan V. Sterling"
+                value={firstName}
+                onChangeText={setFirstName}
                 placeholderTextColor="#404040"
+                editable={!updating}
               />
             </View>
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>PRIMARY CONTACT</Text>
+              <Text style={styles.inputLabel}>LAST NAME</Text>
               <TextInput
                 style={styles.textInput}
-                defaultValue="+1 (212) 555-0199"
+                value={lastName}
+                onChangeText={setLastName}
+                placeholderTextColor="#404040"
+                editable={!updating}
+              />
+            </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>EMAIL ADDRESS</Text>
+              <TextInput
+                style={[styles.textInput, styles.textInputDisabled]}
+                value={user?.email || ''}
+                placeholderTextColor="#404040"
+                editable={false}
+              />
+              <Text style={styles.inputHint}>Email cannot be changed</Text>
+            </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>PHONE</Text>
+              <TextInput
+                style={styles.textInput}
+                value={phoneNumber}
+                onChangeText={handlePhoneChange}
                 placeholderTextColor="#404040"
                 keyboardType="phone-pad"
+                editable={!updating}
               />
             </View>
+            
+            <TouchableOpacity 
+              style={[
+                styles.saveButton, 
+                (updating || !hasProfileChanged()) && styles.saveButtonDisabled
+              ]} 
+              onPress={handleUpdateProfile}
+              disabled={updating || !hasProfileChanged()}
+            >
+              {updating ? (
+                <ActivityIndicator size="small" color="#0a0a0a" />
+              ) : (
+                <Text style={styles.saveButtonText}>SAVE CHANGES</Text>
+              )}
+            </TouchableOpacity>
+          </ScrollView>
+        );
+      
+      case 'PHONE':
+        return (
+          <ScrollView style={styles.content} contentContainerStyle={styles.formContent}>
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>SECURE EMAIL</Text>
+              <Text style={styles.inputLabel}>PHONE NUMBER</Text>
               <TextInput
                 style={styles.textInput}
-                defaultValue="j.sterling@atlas-secure.net"
+                value={phoneNumber}
+                onChangeText={handlePhoneChange}
                 placeholderTextColor="#404040"
-                keyboardType="email-address"
+                placeholder="+1 (555) 000-0000"
+                keyboardType="phone-pad"
+                editable={!updating}
               />
+              <Text style={styles.inputHint}>
+                International format recommended (e.g., +1 555 000 0000)
+              </Text>
             </View>
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>PRINCIPAL RESIDENCE</Text>
-              <TextInput
-                style={styles.textInput}
-                defaultValue="15 Central Park West, New York"
-                placeholderTextColor="#404040"
-              />
-            </View>
-            <TouchableOpacity style={styles.updateButton}>
-              <Text style={styles.updateButtonText}>UPDATE RECORDS</Text>
+            
+            <TouchableOpacity 
+              style={[
+                styles.saveButton, 
+                (updating || !hasProfileChanged()) && styles.saveButtonDisabled
+              ]} 
+              onPress={handleUpdateProfile}
+              disabled={updating || !hasProfileChanged()}
+            >
+              {updating ? (
+                <ActivityIndicator size="small" color="#0a0a0a" />
+              ) : (
+                <Text style={styles.saveButtonText}>UPDATE PHONE</Text>
+              )}
             </TouchableOpacity>
           </ScrollView>
         );
@@ -254,65 +396,88 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
       default:
         return (
           <ScrollView style={styles.content} contentContainerStyle={styles.mainContent}>
-            <View style={styles.menuSection}>
-              <MenuItem 
-                iconName="user" 
-                label="PERSONAL INFORMATION" 
-                onPress={() => setCurrentSection('PERSONAL')} 
-              />
-              <MenuItem 
-                iconName="credit-card" 
-                label="PAYMENT & BILLING" 
-                onPress={() => setCurrentSection('BILLING')} 
-                value="Visa •• 42"
-              />
-              <MenuItem 
-                iconName="tag" 
-                label="PROMOTIONS" 
-                onPress={() => setCurrentSection('PROMO')} 
-                value="1 Active"
-              />
-              <MenuItem 
-                iconName="bell" 
-                label="NOTIFICATIONS" 
-                onPress={() => setCurrentSection('NOTIFICATIONS')} 
-              />
-              <MenuItem 
-                iconName="settings" 
-                label="USER SETTINGS" 
-                onPress={() => setCurrentSection('SETTINGS')} 
-              />
-            </View>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#fff" />
+                <Text style={styles.loadingText}>Loading profile...</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.menuSection}>
+                  <MenuItem 
+                    iconName="user" 
+                    label="PERSONAL INFORMATION" 
+                    onPress={() => setCurrentSection('PERSONAL')}
+                    value={user ? `${user.firstName} ${user.lastName}` : ''}
+                  />
+                  <MenuItem 
+                    iconName="phone" 
+                    label="PHONE" 
+                    onPress={() => setCurrentSection('PHONE')} 
+                    value={user?.phoneNumber || 'Not set'}
+                  />
+                  <MenuItem 
+                    iconName="briefcase" 
+                    label="ACTIVE BOOKINGS" 
+                    onPress={() => {}} 
+                    value={`${bookings.length} bookings`}
+                  />
+                  <MenuItem 
+                    iconName="credit-card" 
+                    label="PAYMENT & BILLING" 
+                    onPress={() => setCurrentSection('BILLING')} 
+                    value="Manage"
+                  />
+                  <MenuItem 
+                    iconName="tag" 
+                    label="PROMOTIONS" 
+                    onPress={() => setCurrentSection('PROMO')} 
+                    value="Available"
+                  />
+                  <MenuItem 
+                    iconName="bell" 
+                    label="NOTIFICATIONS" 
+                    onPress={() => setCurrentSection('NOTIFICATIONS')}
+                    value={unreadCount > 0 ? `${unreadCount} unread` : ''}
+                  />
+                  <MenuItem 
+                    iconName="settings" 
+                    label="USER SETTINGS" 
+                    onPress={() => setCurrentSection('SETTINGS')} 
+                  />
+                </View>
 
-            <View style={styles.legalSection}>
-              <Text style={styles.legalHeader}>LEGAL & COMPLIANCE</Text>
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => setCurrentSection('LEGAL_NOTICE')}
-              >
-                <Text style={styles.legalLinkText}>Legal Notice</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => setCurrentSection('LEGAL_PRIVACY')}
-              >
-                <Text style={styles.legalLinkText}>Privacy Policy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.legalLink}
-                onPress={() => setCurrentSection('LEGAL_TERMS')}
-              >
-            <Text style={styles.legalLinkText}>Terms & Conditions</Text>
-          </TouchableOpacity>
-        </View>
+                <View style={styles.legalSection}>
+                  <Text style={styles.legalHeader}>LEGAL & COMPLIANCE</Text>
+                  <TouchableOpacity 
+                    style={styles.legalLink}
+                    onPress={() => setCurrentSection('LEGAL_NOTICE')}
+                  >
+                    <Text style={styles.legalLinkText}>Legal Notice</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.legalLink}
+                    onPress={() => setCurrentSection('LEGAL_PRIVACY')}
+                  >
+                    <Text style={styles.legalLinkText}>Privacy Policy</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.legalLink}
+                    onPress={() => setCurrentSection('LEGAL_TERMS')}
+                  >
+                    <Text style={styles.legalLinkText}>Terms & Conditions</Text>
+                  </TouchableOpacity>
+                </View>
 
-        <TouchableOpacity 
-          style={styles.logoutButton}
-          onPress={onLogout}
-        >
-          <Icon name="log-out" size={12} color="#737373" />
-          <Text style={styles.logoutText}>SECURE LOGOUT</Text>
-        </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.logoutButton}
+                  onPress={onLogout}
+                >
+                  <Icon name="log-out" size={12} color="#737373" />
+                  <Text style={styles.logoutText}>SECURE LOGOUT</Text>
+                </TouchableOpacity>
+              </>
+            )}
       </ScrollView>
     );
   }
@@ -671,6 +836,46 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#737373',
     lineHeight: 18,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 100,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 11,
+    color: '#737373',
+    letterSpacing: 1.5,
+  },
+  saveButton: {
+    marginTop: 20,
+    marginHorizontal: 32,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#404040',
+  },
+  saveButtonText: {
+    fontSize: 11,
+    color: '#0a0a0a',
+    letterSpacing: 2,
+    fontWeight: '700',
+  },
+  textInputDisabled: {
+    backgroundColor: '#171717',
+    opacity: 0.6,
+  },
+  inputHint: {
+    fontSize: 9,
+    color: '#525252',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   settingsContent: {
     paddingTop: 32,

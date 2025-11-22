@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,65 +6,15 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import { ServiceCategory } from '../utils/types';
+import bookingsService, { Booking as ApiBooking } from '../services/bookingsService';
+import signalrService from '../services/signalrService';
 
 const { width } = Dimensions.get('window');
-
-interface Booking {
-  id: string;
-  service: ServiceCategory;
-  title: string;
-  date: string;
-  time: string;
-  status: 'UPCOMING' | 'PAST' | 'CANCELLED';
-  location: string;
-  statusLabel: string;
-}
-
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: '1',
-    service: 'AVIATION',
-    title: 'Geneva Executive Transfer',
-    date: 'Tomorrow',
-    time: '09:00 CET',
-    status: 'UPCOMING',
-    location: 'LSGG Private Terminal',
-    statusLabel: 'Confirmed'
-  },
-  {
-    id: '2',
-    service: 'ARMOURED',
-    title: 'Diplomatic Convoy',
-    date: '14 Nov',
-    time: '18:30 SAST',
-    status: 'UPCOMING',
-    location: 'Pretoria, ZA',
-    statusLabel: 'Processing'
-  },
-  {
-    id: '3',
-    service: 'PROTECTION',
-    title: 'Estate Security Detail',
-    date: '02 Nov',
-    time: 'Completed',
-    status: 'PAST',
-    location: 'Cape Town',
-    statusLabel: 'Report Filed'
-  },
-  {
-    id: '4',
-    service: 'CHAUFFEUR',
-    title: 'Paris Fashion Week',
-    date: '28 Oct',
-    time: 'Cancelled',
-    status: 'CANCELLED',
-    location: 'Paris, FR',
-    statusLabel: 'Client Request'
-  }
-];
 
 interface BookingTrackerProps {
   onChat: () => void;
@@ -72,17 +22,90 @@ interface BookingTrackerProps {
 
 const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'PAST' | 'CANCELLED'>('UPCOMING');
+  const [bookings, setBookings] = useState<ApiBooking[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredBookings = MOCK_BOOKINGS.filter(b => b.status === activeTab);
+  useEffect(() => {
+    loadBookings();
 
-  const getIcon = (cat: ServiceCategory) => {
-    const iconMap = {
-      AVIATION: 'compass',
-      CHAUFFEUR: 'truck',
-      ARMOURED: 'shield',
-      PROTECTION: 'user-check',
+    // Subscribe to real-time booking updates
+    const unsubscribeStatus = signalrService.onBookingStatusChanged((update) => {
+      console.log('Booking status changed:', update);
+      // Reload bookings when status changes
+      loadBookings();
+    });
+
+    const unsubscribeUpdate = signalrService.onBookingUpdate((update) => {
+      console.log('Booking updated:', update);
+      // Reload bookings when updated
+      loadBookings();
+    });
+
+    return () => {
+      unsubscribeStatus();
+      unsubscribeUpdate();
     };
-    return iconMap[cat];
+  }, []);
+
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      const response = await bookingsService.getBookings({
+        page: 1,
+        pageSize: 50,
+      });
+      setBookings(response.data);
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+      Alert.alert('Error', 'Failed to load bookings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getBookingStatus = (booking: ApiBooking): 'UPCOMING' | 'PAST' | 'CANCELLED' => {
+    if (booking.status === 'Cancelled') return 'CANCELLED';
+    if (booking.status === 'Completed') return 'PAST';
+    return 'UPCOMING';
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Check if today
+    if (date.toDateString() === now.toDateString()) {
+      return 'Today';
+    }
+    // Check if tomorrow
+    if (date.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    }
+    // Format as "14 Nov"
+    return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+
+  const filteredBookings = bookings.filter(b => getBookingStatus(b) === activeTab);
+
+  const getIcon = (assetName: string): string => {
+    // Try to determine icon from asset name
+    if (assetName.toLowerCase().includes('aircraft') || assetName.toLowerCase().includes('jet')) {
+      return 'compass';
+    }
+    if (assetName.toLowerCase().includes('vehicle') || assetName.toLowerCase().includes('car')) {
+      return 'truck';
+    }
+    if (assetName.toLowerCase().includes('armoured') || assetName.toLowerCase().includes('armor')) {
+      return 'shield';
+    }
+    return 'user-check';
   };
 
   const getStatusColor = (status: string) => {
@@ -129,7 +152,12 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
         snapToInterval={width * 0.75 + 16}
         decelerationRate="fast"
       >
-        {filteredBookings.length > 0 ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#fff" />
+            <Text style={styles.loadingText}>Loading bookings...</Text>
+          </View>
+        ) : filteredBookings.length > 0 ? (
           filteredBookings.map((booking) => (
             <View key={booking.id} style={styles.bookingCard}>
               {/* Card Header */}
@@ -137,43 +165,59 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
                 <View style={styles.cardHeaderLeft}>
                   <View style={styles.iconContainer}>
                     <Icon 
-                      name={getIcon(booking.service)} 
+                      name={getIcon(booking.assetName)} 
                       size={16} 
                       color="#a3a3a3" 
                     />
                   </View>
                   <View>
-                    <Text style={styles.serviceType}>{booking.service}</Text>
-                    <Text style={styles.bookingId}>{booking.id.padStart(4, '0')}</Text>
+                    <Text style={styles.serviceType}>{booking.assetName}</Text>
+                    <Text style={styles.bookingId}>#{booking.id.slice(0, 8)}</Text>
                   </View>
                 </View>
                 
                 <View style={styles.statusBadge}>
                   <View style={[
                     styles.statusDot,
-                    { backgroundColor: getStatusColor(booking.status) }
+                    { backgroundColor: getStatusColor(getBookingStatus(booking)) }
                   ]} />
-                  <Text style={styles.statusLabel}>{booking.statusLabel}</Text>
+                  <Text style={styles.statusLabel}>{booking.status}</Text>
                 </View>
               </View>
 
               {/* Title */}
-              <Text style={styles.bookingTitle}>{booking.title}</Text>
+              <Text style={styles.bookingTitle}>
+                {booking.pickupLocation} → {booking.dropoffLocation}
+              </Text>
 
               {/* Details */}
               <View style={styles.details}>
                 <View style={styles.detailRow}>
                   <Icon name="clock" size={12} color="#737373" />
                   <Text style={styles.detailText}>
-                    {booking.date} • {booking.time}
+                    {formatDate(booking.startDate)} • {formatTime(booking.startDate)}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
                   <Icon name="map-pin" size={12} color="#737373" />
                   <Text style={styles.detailText} numberOfLines={1}>
-                    {booking.location}
+                    {booking.pickupLocation}
                   </Text>
                 </View>
+                <View style={styles.detailRow}>
+                  <Icon name="dollar-sign" size={12} color="#737373" />
+                  <Text style={styles.detailText}>
+                    ${booking.totalPrice.toLocaleString()}
+                  </Text>
+                </View>
+                {booking.notes && (
+                  <View style={styles.detailRow}>
+                    <Icon name="info" size={12} color="#737373" />
+                    <Text style={styles.detailText} numberOfLines={2}>
+                      {booking.notes}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Chat Button */}
@@ -319,6 +363,19 @@ const styles = StyleSheet.create({
     color: '#737373',
     fontFamily: 'Courier New',
     flex: 1,
+  },
+  loadingContainer: {
+    width: width * 0.75,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 11,
+    color: '#737373',
+    letterSpacing: 1.5,
   },
   chatButton: {
     position: 'absolute',
