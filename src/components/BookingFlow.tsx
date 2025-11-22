@@ -9,7 +9,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Dimensions,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/Feather';
 import { Asset, ServiceCategory } from '../utils/types';
 import { ASSETS } from '../utils/constants';
@@ -30,6 +32,8 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
   const [pickupLocation, setPickupLocation] = useState('');
   const [destination, setDestination] = useState('');
   const [timing, setTiming] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const assets = ASSETS.filter(a => a.category === category);
 
@@ -130,7 +134,11 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
         </View>
         <Text style={styles.headerTitle}>Mission Logistics</Text>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.formContainer}>
+        <ScrollView 
+          style={styles.scrollView} 
+          contentContainerStyle={styles.formContainer}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Selected Asset Summary */}
           <View style={styles.assetSummary}>
             <View style={styles.assetSummaryIcon}>
@@ -177,16 +185,38 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>TIMING</Text>
-              <View style={styles.inputContainer}>
+              <TouchableOpacity 
+                style={styles.inputContainer}
+                onPress={() => setShowDatePicker(true)}
+              >
                 <Icon name="calendar" size={14} color="#525252" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Date and Time"
-                  placeholderTextColor="#262626"
-                  value={timing}
-                  onChangeText={setTiming}
+                <Text style={[styles.input, styles.dateText]}>
+                  {selectedDate.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </Text>
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="datetime"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(event, date) => {
+                    setShowDatePicker(Platform.OS === 'ios');
+                    if (date) {
+                      setSelectedDate(date);
+                      setTiming(date.toISOString());
+                    }
+                  }}
+                  minimumDate={new Date()}
+                  textColor="#fff"
+                  themeVariant="dark"
                 />
-              </View>
+              )}
             </View>
 
             {/* Protection Add-On */}
@@ -224,6 +254,14 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* Review Mission Button */}
+            <TouchableOpacity 
+              style={styles.primaryButton} 
+              onPress={() => setStep(3)}
+            >
+              <Text style={styles.primaryButtonText}>REVIEW MISSION</Text>
+            </TouchableOpacity>
           </View>
 
           <View style={styles.infoBox}>
@@ -233,12 +271,6 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
             </Text>
           </View>
         </ScrollView>
-
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(3)}>
-            <Text style={styles.primaryButtonText}>REVIEW MISSION</Text>
-          </TouchableOpacity>
-        </View>
       </View>
     );
   }
@@ -255,7 +287,11 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
         </View>
         <Text style={styles.headerTitle}>Confirmation</Text>
 
-        <View style={styles.confirmationContainer}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.confirmationContainer}
+          showsVerticalScrollIndicator={false}
+        >
           {isProcessing ? (
             <View style={styles.processingContainer}>
               <ActivityIndicator size="large" color="#fff" />
@@ -295,20 +331,16 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
                 </View>
               </View>
 
+              <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                <Text style={styles.secondaryButtonText}>INITIATE REQUEST</Text>
+              </TouchableOpacity>
+
               <Text style={styles.disclaimer}>
                 By confirming, you authorize a discreet pre-authorization hold. ATLAS Operations will initiate protocol immediately.
               </Text>
             </>
           )}
-        </View>
-
-        {!isProcessing && (
-          <View style={styles.footer}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={handleConfirm}>
-              <Text style={styles.secondaryButtonText}>INITIATE REQUEST</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        </ScrollView>
       </View>
     );
   }
@@ -353,7 +385,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     paddingHorizontal: 32,
     paddingTop: 24,
-    paddingBottom: 16,
+    paddingBottom: 8,
     letterSpacing: 1.5,
     fontWeight: '300',
   },
@@ -447,7 +479,7 @@ const styles = StyleSheet.create({
   formContainer: {
     paddingHorizontal: 32,
     paddingTop: 40,
-    paddingBottom: 128,
+    paddingBottom: 200,
   },
   assetSummary: {
     flexDirection: 'row',
@@ -528,6 +560,9 @@ const styles = StyleSheet.create({
     fontWeight: '300',
     letterSpacing: 0.8,
     padding: 0,
+  },
+  dateText: {
+    paddingVertical: 4,
   },
   protectionCard: {
     borderWidth: 1,
@@ -640,10 +675,10 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
   },
   confirmationContainer: {
-    flex: 1,
-    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    paddingBottom: 120,
     alignItems: 'center',
-    paddingHorizontal: 32,
   },
   processingContainer: {
     alignItems: 'center',
@@ -666,8 +701,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#171717',
     backgroundColor: 'rgba(23,23,23,0.1)',
-    padding: 32,
-    gap: 24,
+    padding: 20,
+    gap: 20,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -695,13 +730,23 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#171717',
   },
+  confirmButton: {
+    backgroundColor: '#171717',
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#262626',
+    marginTop: 20,
+    width: '100%',
+    maxWidth: 300,
+  },
   disclaimer: {
     fontSize: 9,
     color: '#525252',
     lineHeight: 16,
     textAlign: 'center',
     maxWidth: 240,
-    marginTop: 48,
+    marginTop: 20,
     fontWeight: '300',
   },
 });
