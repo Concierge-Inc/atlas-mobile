@@ -26,12 +26,24 @@ const Registration: React.FC<RegistrationProps> = ({ onRegister, onSwitchToLogin
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Calculate validation states (always called, not conditionally)
+  const isCredentialsValid = email.trim() !== '' && 
+                             password.trim() !== '' && 
+                             confirmPassword.trim() !== '' &&
+                             password.length >= 8 &&
+                             password === confirmPassword;
+
+  const isPersonalValid = firstName.trim() !== '' && lastName.trim() !== '';
+
+  const isVerificationValid = verificationCode.trim().length === 6;
 
   const handleNextStep = async () => {
     setError(null);
@@ -254,9 +266,16 @@ const Registration: React.FC<RegistrationProps> = ({ onRegister, onSwitchToLogin
                     onChangeText={setConfirmPassword}
                     placeholder="Re-enter password"
                     placeholderTextColor="#404040"
-                    secureTextEntry={!showPassword}
+                    secureTextEntry={!showConfirmPassword}
                     autoCapitalize="none"
                   />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    <Icon 
+                      name={showConfirmPassword ? 'eye-off' : 'eye'} 
+                      size={16} 
+                      color="#525252" 
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
             </>
@@ -345,9 +364,19 @@ const Registration: React.FC<RegistrationProps> = ({ onRegister, onSwitchToLogin
 
           {/* Next Button */}
           <TouchableOpacity 
-            style={[styles.nextButton, isLoading && styles.nextButtonDisabled]}
+            style={[
+              styles.nextButton, 
+              (isLoading || 
+                (step === 'CREDENTIALS' && !isCredentialsValid) ||
+                (step === 'PERSONAL' && !isPersonalValid) ||
+                (step === 'VERIFICATION' && !isVerificationValid)
+              ) && styles.nextButtonDisabled
+            ]}
             onPress={handleNextStep}
-            disabled={isLoading}
+            disabled={isLoading || 
+                     (step === 'CREDENTIALS' && !isCredentialsValid) ||
+                     (step === 'PERSONAL' && !isPersonalValid) ||
+                     (step === 'VERIFICATION' && !isVerificationValid)}
           >
             <Text style={styles.nextButtonText}>
               {isLoading ? 'PROCESSING...' : 

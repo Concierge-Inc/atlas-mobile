@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import authService from '../services/authService';
+import ForgotPassword from './ForgotPassword';
 
 interface LoginProps {
   onLogin: () => void;
@@ -24,6 +25,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
+  // Validation state
+  const isLoginValid = email.trim() !== '' && password.trim() !== '';
+
+  if (showForgotPassword) {
+    return <ForgotPassword onBack={() => setShowForgotPassword(false)} />;
+  }
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -44,15 +53,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFaceID = () => {
-    // Simulate Face ID authentication
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      onLogin();
-    }, 1000);
   };
 
   return (
@@ -133,38 +133,34 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotPassword}>
+          <TouchableOpacity 
+            style={styles.forgotPassword}
+            onPress={() => setShowForgotPassword(true)}
+          >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
           {/* Login Button */}
           <TouchableOpacity 
-            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
+            style={[
+              styles.loginButton, 
+              (isLoading || !isLoginValid) && styles.loginButtonDisabled
+            ]}
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={isLoading || !isLoginValid}
           >
             <Text style={styles.loginButtonText}>
               {isLoading ? 'AUTHENTICATING...' : 'SECURE LOGIN'}
             </Text>
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Face ID / Biometric */}
+          {/* Guest Login */}
           <TouchableOpacity 
-            style={styles.biometricButton}
-            onPress={handleFaceID}
+            style={styles.guestButton}
+            onPress={onLogin}
             disabled={isLoading}
           >
-            <Icon name="smartphone" size={16} color="#a3a3a3" />
-            <Text style={styles.biometricButtonText}>
-              USE FACE ID
-            </Text>
+            <Text style={styles.guestButtonText}>CONTINUE AS GUEST</Text>
           </TouchableOpacity>
 
           {/* Register Link */}
@@ -305,6 +301,20 @@ const styles = StyleSheet.create({
     color: '#0a0a0a',
     letterSpacing: 2.5,
     fontWeight: '700',
+  },
+  guestButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(38,38,38,0.8)',
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  guestButtonText: {
+    fontSize: 11,
+    color: '#737373',
+    letterSpacing: 2.5,
+    fontWeight: '600',
   },
   divider: {
     flexDirection: 'row',

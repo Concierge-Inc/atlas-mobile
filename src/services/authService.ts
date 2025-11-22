@@ -47,6 +47,39 @@ class AuthService {
   private refreshToken: string | null = null;
 
   /**
+   * Parse error response from API
+   */
+  private async parseErrorResponse(response: Response): Promise<string> {
+    try {
+      const errorData = await response.json() as any;
+      
+      // Log full error response
+      console.log('🔴 FULL ERROR RESPONSE:', JSON.stringify(errorData, null, 2));
+      
+      // Check for generalErrors array
+      if (errorData.errors?.generalErrors && Array.isArray(errorData.errors.generalErrors)) {
+        return errorData.errors.generalErrors.join(', ');
+      }
+      
+      // Fallback to message field
+      if (errorData.message) {
+        return errorData.message;
+      }
+      
+      return 'An error occurred';
+    } catch {
+      // If JSON parsing fails, try to get text
+      try {
+        const textError = await response.text();
+        console.log('🔴 ERROR TEXT:', textError);
+        return textError || 'An error occurred';
+      } catch {
+        return 'An error occurred';
+      }
+    }
+  }
+
+  /**
    * Register a new user
    */
   async register(request: RegisterRequest): Promise<AuthenticationResponse> {
@@ -56,6 +89,8 @@ class AuthService {
     }
 
     try {
+      console.log('🔵 REGISTER REQUEST:', JSON.stringify(request, null, 2));
+      
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
@@ -64,12 +99,33 @@ class AuthService {
         body: JSON.stringify(request),
       });
 
+      console.log('🔵 REGISTER RESPONSE STATUS:', response.status);
+
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Registration failed');
+        const responseText = await response.text();
+        console.log('🔴 RAW REGISTER ERROR RESPONSE:', responseText);
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          console.log('🔴 PARSED REGISTER ERROR:', JSON.stringify(errorData, null, 2));
+          
+          // Extract error message
+          if (errorData.errors?.generalErrors && Array.isArray(errorData.errors.generalErrors)) {
+            throw new Error(errorData.errors.generalErrors.join(', '));
+          }
+          if (errorData.message) {
+            throw new Error(errorData.message);
+          }
+        } catch (parseError) {
+          console.log('🔴 Failed to parse error, using raw text');
+        }
+        
+        throw new Error(responseText || 'Registration failed');
       }
 
       const data = await response.json() as AuthenticationResponse;
+      console.log('🟢 REGISTER SUCCESS:', JSON.stringify(data, null, 2));
+      
       await this.saveTokens(data.accessToken, data.refreshToken);
       await this.saveUser(data.user);
       
@@ -90,6 +146,8 @@ class AuthService {
     }
 
     try {
+      console.log('🔵 LOGIN REQUEST:', JSON.stringify(request, null, 2));
+      
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -98,12 +156,33 @@ class AuthService {
         body: JSON.stringify(request),
       });
 
+      console.log('🔵 LOGIN RESPONSE STATUS:', response.status);
+
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || 'Login failed');
+        const responseText = await response.text();
+        console.log('🔴 RAW LOGIN ERROR RESPONSE:', responseText);
+        
+        try {
+          const errorData = JSON.parse(responseText);
+          console.log('🔴 PARSED LOGIN ERROR:', JSON.stringify(errorData, null, 2));
+          
+          // Extract error message
+          if (errorData.errors?.generalErrors && Array.isArray(errorData.errors.generalErrors)) {
+            throw new Error(errorData.errors.generalErrors.join(', '));
+          }
+          if (errorData.message) {
+            throw new Error(errorData.message);
+          }
+        } catch (parseError) {
+          console.log('🔴 Failed to parse error, using raw text');
+        }
+        
+        throw new Error(responseText || 'Login failed');
       }
 
       const data = await response.json() as AuthenticationResponse;
+      console.log('🟢 LOGIN SUCCESS:', JSON.stringify(data, null, 2));
+      
       await this.saveTokens(data.accessToken, data.refreshToken);
       await this.saveUser(data.user);
       
@@ -120,19 +199,82 @@ class AuthService {
   async logout(): Promise<void> {
     try {
       const token = await this.getAccessToken();
+      console.log('🔵 LOGOUT REQUEST');
       
       if (token) {
-        await fetch(`${API_URL}/auth/logout`, {
+        const response = await fetch(`${API_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
+        console.log('🔵 LOGOUT RESPONSE STATUS:', response.status);
       }
+      console.log('🟢 LOGOUT SUCCESS');
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       await this.clearTokens();
+    }
+  }
+
+  /**
+   * Request password reset
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      console.log('🔵 FORGOT PASSWORD REQUEST:', JSON.stringify({ email }, null, 2));
+      
+      const response = await fetch(`${API_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      console.log('🔵 FORGOT PASSWORD RESPONSE STATUS:', response.status);
+
+      if (!response.ok) {
+        const error = await this.parseErrorResponse(response);
+        console.log('🔴 FORGOT PASSWORD ERROR:', error);
+        throw new Error(error || 'Failed to send reset email');
+      }
+      
+      console.log('🟢 FORGOT PASSWORD SUCCESS');
+    } catch (error) {
+      console.error('Password reset request error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reset password with token
+   */
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    try {
+      console.log('🔵 RESET PASSWORD REQUEST');
+      
+      const response = await fetch(`${API_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      console.log('🔵 RESET PASSWORD RESPONSE STATUS:', response.status);
+
+      if (!response.ok) {
+        const error = await this.parseErrorResponse(response);
+        console.log('🔴 RESET PASSWORD ERROR:', error);
+        throw new Error(error || 'Failed to reset password');
+      }
+      
+      console.log('🟢 RESET PASSWORD SUCCESS');
+    } catch (error) {
+      console.error('Password reset error:', error);
+      throw error;
     }
   }
 
