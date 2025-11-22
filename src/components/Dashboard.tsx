@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import authService, { UserDto } from '../services/authService';
-import bookingsService, { Booking } from '../services/bookingsService';
+import bookingsService, { Booking, BookingStatus } from '../services/bookingsService';
 import notificationsService from '../services/notificationsService';
 
 type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
@@ -26,6 +26,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
   const [currentSection, setCurrentSection] = useState<SectionType>(initialSection || 'MAIN');
   const [user, setUser] = useState<UserDto | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [activeBookings, setActiveBookings] = useState<Booking[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -59,19 +60,31 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
   const loadUserData = async () => {
     try {
       setLoading(true);
-      const [userData, bookingsData, notifCount] = await Promise.all([
-        authService.getProfile(),
-        bookingsService.getBookings({ page: 1, pageSize: 5 }).catch(() => ({ data: [], totalCount: 0 })),
-        notificationsService.getUnreadCount().catch(() => 0),
-      ]);
-
+      
+      // Fetch user profile
+      const userData = await authService.getProfile();
       if (userData) {
         setUser(userData);
         setFirstName(userData.firstName);
         setLastName(userData.lastName);
         setPhoneNumber(userData.phoneNumber || '');
       }
-      setBookings(bookingsData.data || []);
+
+      // Fetch all bookings and active bookings separately
+      const [allBookings, activeBookingsConfirmed, activeBookingsActive, notifCount] = await Promise.all([
+        bookingsService.getBookings().catch(() => []),
+        bookingsService.getBookings({ status: BookingStatus.Confirmed }).catch(() => []),
+        bookingsService.getBookings({ status: BookingStatus.Active }).catch(() => []),
+        notificationsService.getUnreadCount().catch(() => 0),
+      ]);
+
+      setBookings(allBookings || []);
+      // Combine Confirmed and Active bookings
+      const activeBookingsList = [
+        ...(activeBookingsConfirmed || []),
+        ...(activeBookingsActive || [])
+      ];
+      setActiveBookings(activeBookingsList);
       setUnreadCount(notifCount);
     } catch (error) {
       console.error('Failed to load user data:', error);
@@ -420,7 +433,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
                     iconName="briefcase" 
                     label="ACTIVE BOOKINGS" 
                     onPress={() => {}} 
-                    value={`${bookings.length} bookings`}
+                    value={activeBookings.length > 0 ? `${activeBookings.length} active` : 'None'}
                   />
                   <MenuItem 
                     iconName="credit-card" 

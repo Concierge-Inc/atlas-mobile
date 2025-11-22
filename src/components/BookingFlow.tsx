@@ -14,9 +14,9 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/Feather';
-import { Asset, ServiceCategory } from '../utils/types';
-import { ASSETS } from '../utils/constants';
+import { ServiceCategory } from '../utils/types';
 import bookingsService from '../services/bookingsService';
+import assetsService, { AssetListDto } from '../services/assetsService';
 import signalrService from '../services/signalrService';
 
 const { width } = Dimensions.get('window');
@@ -29,7 +29,7 @@ interface BookingFlowProps {
 
 const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<AssetListDto | null>(null);
   const [includeProtection, setIncludeProtection] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [pickupLocation, setPickupLocation] = useState('');
@@ -38,8 +38,28 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
+  const [assets, setAssets] = useState<AssetListDto[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(true);
 
-  const assets = ASSETS.filter(a => a.category === category);
+  // Fetch assets from backend
+  useEffect(() => {
+    loadAssets();
+  }, [category]);
+
+  const loadAssets = async () => {
+    try {
+      setLoadingAssets(true);
+      const assetsData = await assetsService.getAssets({ category });
+      console.log(`✅ Loaded ${assetsData.length} assets for category ${category}`);
+      setAssets(assetsData);
+    } catch (error) {
+      console.error('Failed to load assets:', error);
+      Alert.alert('Error', 'Failed to load available assets');
+      setAssets([]); // Set empty array on error
+    } finally {
+      setLoadingAssets(false);
+    }
+  };
 
   // Subscribe to booking updates when booking is created
   useEffect(() => {
@@ -63,37 +83,31 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
     }
   }, [createdBookingId]);
 
-  const handleAssetSelect = (asset: Asset) => {
-    if (!asset.available) return;
+  const handleAssetSelect = (asset: AssetListDto) => {
+    if (!asset.isAvailable) return;
     setSelectedAsset(asset);
     setStep(2);
   };
 
   const handleConfirm = async () => {
-    if (!selectedAsset || !pickupLocation || !destination || !timing) {
-      Alert.alert('Missing Information', 'Please fill in all required fields');
-      return;
-    }
+    if (!selectedAsset) return;
 
     setIsProcessing(true);
-    
-    try {
-      // Calculate end date (assuming 4 hours for demo, could be calculated differently)
-      const startDate = new Date(timing);
-      const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000);
 
+    try {
       // Create booking via API
-      const booking = await bookingsService.createBooking({
+      const bookingId = await bookingsService.createBooking({
         assetId: selectedAsset.id,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+        serviceDate: selectedDate.toISOString(),
+        serviceTime: timing,
         pickupLocation,
         dropoffLocation: destination,
+        includeProtection,
         notes: includeProtection ? 'CPO protection detail added' : undefined,
       });
 
-      console.log('✅ Booking created:', booking.id);
-      setCreatedBookingId(booking.id);
+      console.log('✅ Booking created:', bookingId);
+      setCreatedBookingId(bookingId);
 
       // Simulate processing delay for UI
       setTimeout(() => {
@@ -116,12 +130,12 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
     }
   };
 
-  const formatCurrency = (val: number) => 
+  const formatCurrency = (amount: number, currency: string = 'USD') => 
     new Intl.NumberFormat('en-US', { 
       style: 'currency', 
-      currency: 'USD', 
+      currency, 
       maximumFractionDigits: 0 
-    }).format(val);
+    }).format(amount);
 
   const getCategoryTitle = (cat: ServiceCategory) => {
     if (cat === 'AVIATION') return 'Private Air Transfer';
@@ -143,45 +157,54 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
 
         {/* Asset List */}
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.assetList}>
-          {assets.map(asset => (
-            <TouchableOpacity
-              key={asset.id}
-              onPress={() => handleAssetSelect(asset)}
-              style={[styles.assetCard, !asset.available && styles.assetCardDisabled]}
-              disabled={!asset.available}
-            >
-              <View style={styles.assetImageContainer}>
-                <Image 
-                  source={{ uri: asset.image }} 
-                  style={styles.assetImage}
-                />
-                <View style={styles.assetPriceBadge}>
-                  <Text style={styles.assetPrice}>{formatCurrency(asset.hourlyRateUSD)}/HR</Text>
-                </View>
-              </View>
-
-              <View style={styles.assetInfo}>
-                <View style={styles.assetHeader}>
-                  <View>
-                    <Text style={styles.assetName}>{asset.name}</Text>
-                    <View style={styles.assetSpecs}>
-                      <Text style={styles.assetSpecText}>{asset.specs.passengers} PAX</Text>
-                      <View style={styles.specDivider} />
-                      <Text style={styles.assetSpecText}>
-                        {asset.specs.ballisticGrade || 'STANDARD'}
-                      </Text>
-                    </View>
+          {loadingAssets ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.loadingText}>Loading assets...</Text>
+            </View>
+          ) : assets.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No assets available</Text>
+            </View>
+          ) : (
+            assets.map(asset => (
+              <TouchableOpacity
+                key={asset.id}
+                onPress={() => handleAssetSelect(asset)}
+                style={[styles.assetCard, !asset.isAvailable && styles.assetCardDisabled]}
+                disabled={!asset.isAvailable}
+              >
+                <View style={styles.assetImageContainer}>
+                  <Image 
+                    source={{ uri: asset.imageUrl || 'https://picsum.photos/800/600?grayscale' }} 
+                    style={styles.assetImage}
+                  />
+                  <View style={styles.assetPriceBadge}>
+                    <Text style={styles.assetPrice}>
+                      {formatCurrency(asset.hourlyRate.amount, asset.hourlyRate.currency)}/HR
+                    </Text>
                   </View>
-                  
-                  {asset.available ? (
-                    <View style={styles.availableDot} />
-                  ) : (
-                    <Text style={styles.reservedText}>RESERVED</Text>
-                  )}
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+
+                <View style={styles.assetInfo}>
+                  <View style={styles.assetHeader}>
+                    <View>
+                      <Text style={styles.assetName}>{asset.name}</Text>
+                      <View style={styles.assetSpecs}>
+                        <Text style={styles.assetSpecText}>AVAILABLE</Text>
+                      </View>
+                    </View>
+                    
+                    {asset.isAvailable ? (
+                      <View style={styles.availableDot} />
+                    ) : (
+                      <Text style={styles.reservedText}>RESERVED</Text>
+                    )}
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
       </View>
     );
@@ -391,7 +414,7 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>EST. RATE</Text>
                   <Text style={styles.summaryValue}>
-                    {formatCurrency(selectedAsset?.hourlyRateUSD || 0)}/hr
+                    {selectedAsset ? formatCurrency(selectedAsset.hourlyRate.amount, selectedAsset.hourlyRate.currency) : '$0'}/hr
                   </Text>
                 </View>
               </View>
@@ -511,6 +534,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     fontWeight: '500',
     marginBottom: 8,
+  },
+  assetDescription: {
+    fontSize: 11,
+    color: '#737373',
+    lineHeight: 18,
+    marginTop: 12,
   },
   assetSpecs: {
     flexDirection: 'row',
@@ -813,6 +842,27 @@ const styles = StyleSheet.create({
     maxWidth: 240,
     marginTop: 20,
     fontWeight: '300',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 12,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

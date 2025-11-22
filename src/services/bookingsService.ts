@@ -3,20 +3,30 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = Config.API_URL || 'http://localhost:5001/api';
 
+// Booking status enum (matches backend)
+export enum BookingStatus {
+  Pending = 0,
+  Confirmed = 1,
+  Active = 2,
+  Completed = 3,
+  Cancelled = 4
+}
+
+export interface MoneyDto {
+  amount: number;
+  currency: string;
+}
+
 export interface Booking {
   id: string;
-  userId: string;
-  assetId: string;
+  bookingNumber: string;
   assetName: string;
-  startDate: string;
-  endDate: string;
+  serviceType: number;
+  status: 'Pending' | 'Confirmed' | 'Active' | 'Completed' | 'Cancelled';
+  serviceDate: string;
   pickupLocation: string;
   dropoffLocation: string;
-  status: 'Pending' | 'Confirmed' | 'InProgress' | 'Completed' | 'Cancelled';
-  totalPrice: number;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
+  estimatedCost: MoneyDto | null;
 }
 
 export interface BookingListResponse {
@@ -28,37 +38,34 @@ export interface BookingListResponse {
 
 export interface CreateBookingRequest {
   assetId: string;
-  startDate: string;
-  endDate: string;
+  serviceDate: string;
+  serviceTime?: string;
   pickupLocation: string;
   dropoffLocation: string;
+  includeProtection?: boolean;
   notes?: string;
 }
 
 class BookingsService {
-  private async getAuthHeaders(): Promise<Record<string, string>> {
+  private async getAuthHeaders(includeContentType: boolean = true): Promise<Record<string, string>> {
     const token = await AsyncStorage.getItem('accessToken');
     return {
-      'Content-Type': 'application/json',
+      ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   }
 
   async getBookings(params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-  }): Promise<BookingListResponse> {
+    status?: number;
+  }): Promise<Booking[]> {
     try {
       const queryParams = new URLSearchParams();
-      if (params?.page) queryParams.append('page', params.page.toString());
-      if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-      if (params?.status) queryParams.append('status', params.status);
+      if (params?.status !== undefined) queryParams.append('status', params.status.toString());
 
       const url = `${API_URL}/bookings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       console.log('🔵 BOOKINGS REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const headers = await this.getAuthHeaders(false); // GET request, no Content-Type needed
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -72,8 +79,8 @@ class BookingsService {
         throw new Error(errorData.message || 'Failed to fetch bookings');
       }
 
-      const data = await response.json() as BookingListResponse;
-      console.log('✅ BOOKINGS SUCCESS:', data.data?.length, 'bookings loaded');
+      const data = await response.json() as Booking[];
+      console.log('✅ BOOKINGS SUCCESS:', data.length, 'bookings loaded');
       return data;
     } catch (error) {
       console.error('🔴 BOOKINGS SERVICE ERROR:', error);
@@ -81,7 +88,7 @@ class BookingsService {
     }
   }
 
-  async createBooking(bookingData: CreateBookingRequest): Promise<Booking> {
+  async createBooking(bookingData: CreateBookingRequest): Promise<string> {
     try {
       const url = `${API_URL}/bookings`;
       console.log('🔵 CREATE BOOKING REQUEST:', url, bookingData);
@@ -101,9 +108,9 @@ class BookingsService {
         throw new Error(errorData.message || 'Failed to create booking');
       }
 
-      const data = await response.json() as Booking;
-      console.log('✅ CREATE BOOKING SUCCESS:', data.id);
-      return data;
+      const bookingId = await response.json() as string;
+      console.log('✅ CREATE BOOKING SUCCESS:', bookingId);
+      return bookingId;
     } catch (error) {
       console.error('🔴 CREATE BOOKING SERVICE ERROR:', error);
       throw error;
@@ -115,7 +122,7 @@ class BookingsService {
       const url = `${API_URL}/bookings/${bookingId}/confirm`;
       console.log('🔵 CONFIRM BOOKING REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const headers = await this.getAuthHeaders(false); // POST with no body
       const response = await fetch(url, {
         method: 'POST',
         headers,

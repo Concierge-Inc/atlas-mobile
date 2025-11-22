@@ -50,11 +50,8 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
   const loadBookings = async () => {
     try {
       setLoading(true);
-      const response = await bookingsService.getBookings({
-        page: 1,
-        pageSize: 50,
-      });
-      setBookings(response.data);
+      const bookings = await bookingsService.getBookings();
+      setBookings(bookings);
     } catch (error) {
       console.error('Failed to load bookings:', error);
       Alert.alert('Error', 'Failed to load bookings');
@@ -92,7 +89,14 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
-  const filteredBookings = bookings.filter(b => getBookingStatus(b) === activeTab);
+  const formatCurrency = (amount: number, currency: string = 'USD') => 
+    new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency, 
+      maximumFractionDigits: 0 
+    }).format(amount);
+
+  const filteredBookings = (bookings || []).filter(b => getBookingStatus(b) === activeTab);
 
   const getIcon = (assetName: string): string => {
     // Try to determine icon from asset name
@@ -195,7 +199,7 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
                 <View style={styles.detailRow}>
                   <Icon name="clock" size={12} color="#737373" />
                   <Text style={styles.detailText}>
-                    {formatDate(booking.startDate)} • {formatTime(booking.startDate)}
+                    {formatDate(booking.serviceDate)} • {formatTime(booking.serviceDate)}
                   </Text>
                 </View>
                 <View style={styles.detailRow}>
@@ -207,14 +211,14 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
                 <View style={styles.detailRow}>
                   <Icon name="dollar-sign" size={12} color="#737373" />
                   <Text style={styles.detailText}>
-                    ${booking.totalPrice.toLocaleString()}
+                    {booking.estimatedCost ? formatCurrency(booking.estimatedCost.amount, booking.estimatedCost.currency) : 'TBD'}
                   </Text>
                 </View>
-                {booking.notes && (
+                {booking.bookingNumber && (
                   <View style={styles.detailRow}>
                     <Icon name="info" size={12} color="#737373" />
                     <Text style={styles.detailText} numberOfLines={2}>
-                      {booking.notes}
+                      Ref: {booking.bookingNumber}
                     </Text>
                   </View>
                 )}

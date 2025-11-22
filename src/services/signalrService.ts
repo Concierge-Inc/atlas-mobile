@@ -15,7 +15,7 @@ export interface NotificationMessage {
 
 export interface BookingStatusUpdate {
   bookingId: string;
-  status: 'Pending' | 'Confirmed' | 'InProgress' | 'Completed' | 'Cancelled';
+  status: 'Pending' | 'Confirmed' | 'Active' | 'Completed' | 'Cancelled';
   message?: string;
   timestamp: string;
 }
@@ -138,8 +138,8 @@ class SignalRService {
       await this.atlasConnection.start();
       console.log('✅ SIGNALR: Atlas Hub connected');
     } catch (error: any) {
-      console.error('🔴 SIGNALR: Atlas Hub connection failed:', error?.message || error);
-      throw error;
+      console.log('⚠️ SIGNALR: Atlas Hub connection failed (this is expected if backend is not running)');
+      // Don't throw - this prevents the error from showing in React Native error overlay
     }
   }
 
@@ -194,8 +194,8 @@ class SignalRService {
       await this.notificationConnection.start();
       console.log('✅ SIGNALR: Notification Hub connected');
     } catch (error: any) {
-      console.error('🔴 SIGNALR: Notification Hub connection failed:', error?.message || error);
-      throw error;
+      console.log('⚠️ SIGNALR: Notification Hub connection failed (this is expected if backend is not running)');
+      // Don't throw - this prevents the error from showing in React Native error overlay
     }
   }
 
