@@ -19,6 +19,7 @@ import Dashboard from './src/components/Dashboard';
 import BookingTracker from './src/components/BookingTracker';
 import Protocol from './src/components/Protocol';
 import Settings from './src/components/Settings';
+import Notifications from './src/components/Notifications';
 import Login from './src/components/Login';
 import Registration from './src/components/Registration';
 
@@ -146,6 +147,9 @@ const App: React.FC = () => {
       
       case ViewState.PROFILE:
         return <Dashboard onLogout={handleLogout} />;
+      
+      case ViewState.NOTIFICATIONS:
+        return <Notifications onBack={() => navigateTo(ViewState.HOME)} />;
       
       case ViewState.HOME:
       default:

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import authService from '../services/authService';
 import ForgotPassword from './ForgotPassword';
 
@@ -26,6 +27,26 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    loadSavedCredentials();
+  }, []);
+
+  const loadSavedCredentials = async () => {
+    try {
+      const savedEmail = await AsyncStorage.getItem('rememberedEmail');
+      const savedRememberMe = await AsyncStorage.getItem('rememberMe');
+      
+      if (savedRememberMe === 'true' && savedEmail) {
+        setEmail(savedEmail);
+        setRememberMe(true);
+      }
+    } catch (error) {
+      console.error('Failed to load saved credentials:', error);
+    }
+  };
 
   // Validation state
   const isLoginValid = email.trim() !== '' && password.trim() !== '';
@@ -45,6 +66,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
     
     try {
       await authService.login({ email, password });
+      
+      // Save credentials if Remember Me is checked
+      if (rememberMe) {
+        await AsyncStorage.setItem('rememberedEmail', email);
+        await AsyncStorage.setItem('rememberMe', 'true');
+      } else {
+        await AsyncStorage.removeItem('rememberedEmail');
+        await AsyncStorage.removeItem('rememberMe');
+      }
+      
       onLogin();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
@@ -132,13 +163,25 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
             </View>
           </View>
 
-          {/* Forgot Password */}
-          <TouchableOpacity 
-            style={styles.forgotPassword}
-            onPress={() => setShowForgotPassword(true)}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          {/* Remember Me & Forgot Password */}
+          <View style={styles.optionsRow}>
+            <TouchableOpacity 
+              style={styles.rememberMeContainer}
+              onPress={() => setRememberMe(!rememberMe)}
+            >
+              <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                {rememberMe && <Icon name="check" size={12} color="#000" />}
+              </View>
+              <Text style={styles.rememberMeText}>Remember Me</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.forgotPassword}
+              onPress={() => setShowForgotPassword(true)}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Login Button */}
           <TouchableOpacity 
@@ -278,9 +321,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     padding: 0,
   },
-  forgotPassword: {
-    alignSelf: 'flex-end',
+  optionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 32,
+  },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderWidth: 1,
+    borderColor: '#404040',
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  rememberMeText: {
+    fontSize: 12,
+    color: '#737373',
+  },
+  forgotPassword: {
   },
   forgotPasswordText: {
     fontSize: 12,

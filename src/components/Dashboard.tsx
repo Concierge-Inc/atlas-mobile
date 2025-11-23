@@ -12,7 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/Feather';
 import authService, { UserDto } from '../services/authService';
 import bookingsService, { Booking, BookingStatus } from '../services/bookingsService';
-import notificationsService from '../services/notificationsService';
+import notificationsService, { Notification } from '../services/notificationsService';
 
 type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
@@ -27,6 +27,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
   const [user, setUser] = useState<UserDto | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [activeBookings, setActiveBookings] = useState<Booking[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -71,11 +72,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
       }
 
       // Fetch all bookings and active bookings separately
-      const [allBookings, activeBookingsConfirmed, activeBookingsActive, notifCount] = await Promise.all([
+      const [allBookings, activeBookingsConfirmed, activeBookingsActive, notifCount, notificationsList] = await Promise.all([
         bookingsService.getBookings().catch(() => []),
         bookingsService.getBookings({ status: BookingStatus.Confirmed }).catch(() => []),
         bookingsService.getBookings({ status: BookingStatus.Active }).catch(() => []),
         notificationsService.getUnreadCount().catch(() => 0),
+        notificationsService.getNotifications().catch(() => []),
       ]);
 
       setBookings(allBookings || []);
@@ -86,11 +88,38 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
       ];
       setActiveBookings(activeBookingsList);
       setUnreadCount(notifCount);
+      setNotifications(notificationsList || []);
     } catch (error) {
       console.error('Failed to load user data:', error);
-      Alert.alert('Error', 'Failed to load profile data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatNotificationTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      await notificationsService.markAsRead(notificationId);
+      setNotifications(prev =>
+        prev.map(n => (n.id === notificationId ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
     }
   };
 
@@ -345,21 +374,43 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
       case 'NOTIFICATIONS':
         return (
           <ScrollView style={styles.content}>
-            {[
-              { title: 'Route Safety Update', time: '2h ago', text: 'Increased traffic reported on N1 route. Alternative path loaded for 14:00 transfer.', urgent: false },
-              { title: 'Payment Confirmed', time: '1d ago', text: 'Authorization hold for Booking #4922 released.', urgent: false },
-              { title: 'Security Alert', time: '3d ago', text: 'Civil unrest reported near destination sector. Advisory issued.', urgent: true }
-            ].map((note, i) => (
-              <View key={i} style={[styles.notificationItem, note.urgent && styles.notificationUrgent]}>
-                <View style={styles.notificationHeader}>
-                  <Text style={[styles.notificationTitle, note.urgent && styles.notificationTitleUrgent]}>
-                    {note.title}
-                  </Text>
-                  <Text style={styles.notificationTime}>{note.time}</Text>
-                </View>
-                <Text style={styles.notificationText}>{note.text}</Text>
+            {notifications.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="bell-off" size={32} color="#262626" />
+                <Text style={styles.emptyText}>No notifications</Text>
               </View>
-            ))}
+            ) : (
+              notifications.map((notification) => (
+                <TouchableOpacity
+                  key={notification.id}
+                  style={[
+                    styles.notificationItem,
+                    notification.isUrgent && styles.notificationUrgent,
+                    !notification.isRead && styles.notificationUnread
+                  ]}
+                  onPress={() => !notification.isRead && handleMarkAsRead(notification.id)}
+                >
+                  <View style={styles.notificationHeader}>
+                    <View style={styles.notificationTitleRow}>
+                      <Text style={[
+                        styles.notificationTitle,
+                        notification.isUrgent && styles.notificationTitleUrgent
+                      ]}>
+                        {notification.title}
+                      </Text>
+                      {!notification.isRead && <View style={styles.unreadDot} />}
+                    </View>
+                    <Text style={styles.notificationTime}>{formatNotificationTime(notification.createdAt)}</Text>
+                  </View>
+                  <Text style={styles.notificationText}>{notification.text}</Text>
+                  {notification.isUrgent && (
+                    <View style={styles.urgentBadge}>
+                      <Text style={styles.urgentText}>URGENT</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         );
       
@@ -819,15 +870,23 @@ const styles = StyleSheet.create({
     padding: 24,
     borderBottomWidth: 1,
     borderBottomColor: '#171717',
+    position: 'relative',
+  },
+  notificationUnread: {
+    backgroundColor: 'rgba(38,38,38,0.3)',
   },
   notificationUrgent: {
     backgroundColor: 'rgba(127,29,29,0.1)',
   },
   notificationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: 'column',
+    gap: 4,
     marginBottom: 8,
+  },
+  notificationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   notificationTitle: {
     fontSize: 12,
@@ -839,16 +898,45 @@ const styles = StyleSheet.create({
   notificationTitleUrgent: {
     color: '#fca5a5',
   },
+  unreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#3b82f6',
+  },
   notificationTime: {
     fontSize: 9,
     color: '#525252',
     fontFamily: 'Courier New',
-    marginLeft: 12,
   },
   notificationText: {
     fontSize: 10,
     color: '#737373',
     lineHeight: 18,
+  },
+  urgentBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: '#dc2626',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  urgentText: {
+    fontSize: 7,
+    color: '#fff',
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  emptyState: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    gap: 16,
+  },
+  emptyText: {
+    fontSize: 11,
+    color: '#525252',
+    letterSpacing: 1.5,
   },
   loadingContainer: {
     flex: 1,

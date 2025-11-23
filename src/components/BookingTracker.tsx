@@ -54,7 +54,6 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
       setBookings(bookings);
     } catch (error) {
       console.error('Failed to load bookings:', error);
-      Alert.alert('Error', 'Failed to load bookings');
     } finally {
       setLoading(false);
     }
