@@ -15,7 +15,7 @@ import bookingsService, { Booking, BookingStatus } from '../services/bookingsSer
 import notificationsService, { Notification } from '../services/notificationsService';
 import { MOCK_GUEST_USER, getMockBookings, getMockNotifications, getMockUnreadCount } from '../utils/mockData';
 
-type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
+type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'BOOKINGS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
 interface DashboardProps {
   onLogout?: () => void;
@@ -232,6 +232,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
         <Text style={styles.sectionTitle}>
           {currentSection === 'PHONE' ? 'Phone Number' :
            currentSection === 'PROMO' ? 'Promotions' : 
+           currentSection === 'BOOKINGS' ? 'Active Bookings' :
            currentSection === 'NOTIFICATIONS' ? 'Notifications' :
            currentSection === 'SETTINGS' ? 'User Settings' :
            currentSection === 'LEGAL_NOTICE' ? 'Legal Notice' :
@@ -406,6 +407,77 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
           </ScrollView>
         );
       
+      case 'BOOKINGS':
+        return (
+          <ScrollView style={styles.content}>
+            {activeBookings.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="briefcase" size={32} color="#262626" />
+                <Text style={styles.emptyText}>No active bookings</Text>
+              </View>
+            ) : (
+              activeBookings.map((booking) => {
+                const getStatusColor = () => {
+                  switch (booking.status) {
+                    case BookingStatus.Confirmed: return '#22c55e';
+                    case BookingStatus.Active: return '#3b82f6';
+                    default: return '#737373';
+                  };
+                };
+                const getStatusText = () => {
+                  switch (booking.status) {
+                    case BookingStatus.Confirmed: return 'CONFIRMED';
+                    case BookingStatus.Active: return 'ACTIVE';
+                    default: return 'UNKNOWN';
+                  };
+                };
+                return (
+                  <View key={booking.id} style={styles.bookingCard}>
+                    <View style={styles.bookingHeader}>
+                      <Text style={styles.bookingNumber}>{booking.bookingNumber}</Text>
+                      <View style={[styles.bookingStatus, { backgroundColor: getStatusColor() }]}>
+                        <Text style={styles.bookingStatusText}>{getStatusText()}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.bookingAsset}>{booking.assetName}</Text>
+                    <View style={styles.bookingDetails}>
+                      <View style={styles.bookingDetailRow}>
+                        <Icon name="map-pin" size={12} color="#737373" />
+                        <Text style={styles.bookingDetailText}>{booking.pickupLocation}</Text>
+                      </View>
+                      <View style={styles.bookingDetailRow}>
+                        <Icon name="navigation" size={12} color="#737373" />
+                        <Text style={styles.bookingDetailText}>{booking.dropoffLocation}</Text>
+                      </View>
+                      <View style={styles.bookingDetailRow}>
+                        <Icon name="calendar" size={12} color="#737373" />
+                        <Text style={styles.bookingDetailText}>
+                          {new Date(booking.serviceDate).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </Text>
+                      </View>
+                      {booking.estimatedCost && (
+                        <View style={styles.bookingDetailRow}>
+                          <Icon name="dollar-sign" size={12} color="#737373" />
+                          <Text style={styles.bookingDetailText}>
+                            {new Intl.NumberFormat('en-US', { 
+                              style: 'currency', 
+                              currency: booking.estimatedCost.currency 
+                            }).format(booking.estimatedCost.amount)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        );
+      
       case 'NOTIFICATIONS':
         return (
           <ScrollView style={styles.content}>
@@ -518,7 +590,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                   <MenuItem 
                     iconName="briefcase" 
                     label="ACTIVE BOOKINGS" 
-                    onPress={() => {}} 
+                    onPress={() => setCurrentSection('BOOKINGS')} 
                     value={activeBookings.length > 0 ? `${activeBookings.length} active` : 'None'}
                   />
                   <MenuItem 
@@ -1070,6 +1142,55 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'justify',
     marginBottom: 16,
+  },
+  bookingCard: {
+    marginHorizontal: 24,
+    marginBottom: 16,
+    padding: 20,
+    backgroundColor: 'rgba(23,23,23,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(38,38,38,0.6)',
+  },
+  bookingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  bookingNumber: {
+    fontSize: 11,
+    color: '#d4d4d4',
+    letterSpacing: 1.5,
+    fontWeight: '600',
+  },
+  bookingStatus: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  bookingStatusText: {
+    fontSize: 8,
+    color: '#0a0a0a',
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+  bookingAsset: {
+    fontSize: 13,
+    color: '#fff',
+    letterSpacing: 0.5,
+    marginBottom: 16,
+  },
+  bookingDetails: {
+    gap: 10,
+  },
+  bookingDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  bookingDetailText: {
+    fontSize: 10,
+    color: '#737373',
+    letterSpacing: 0.3,
   },
 });
 
