@@ -9,22 +9,24 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import { sendMessageToConcierge } from '../services/geminiService';
-import { Message } from '../utils/types';
+import conciergeService, { MessageRole, ConciergeMessage } from '../services/conciergeService';
+
+interface Message {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: Date;
+}
 
 const Concierge: React.FC<{ isGuestMode?: boolean }> = ({ isGuestMode = false }) => {
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'model',
-      text: 'ATLAS Secure Channel Active. Identity Verified.',
-      timestamp: new Date(),
-    }
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const scrollToBottom = () => {
@@ -34,6 +36,66 @@ const Concierge: React.FC<{ isGuestMode?: boolean }> = ({ isGuestMode = false })
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    if (!isGuestMode) {
+      initializeSession();
+    } else {
+      // Guest mode - show welcome message
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'model',
+          text: 'ATLAS Secure Channel Active. Create an account to chat with our concierge team.',
+          timestamp: new Date(),
+        }
+      ]);
+      setIsInitializing(false);
+    }
+  }, [isGuestMode]);
+
+  const initializeSession = async () => {
+    try {
+      setIsInitializing(true);
+      // Try to get latest session
+      const latestSessionId = await conciergeService.getLatestSession();
+      
+      if (latestSessionId) {
+        setSessionId(latestSessionId);
+        // Load messages from existing session
+        const sessionMessages = await conciergeService.getSessionMessages(latestSessionId);
+        const formattedMessages: Message[] = sessionMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role === MessageRole.User ? 'user' : 'model',
+          text: msg.text,
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(formattedMessages);
+      } else {
+        // No existing session - show welcome message
+        setMessages([
+          {
+            id: 'welcome',
+            role: 'model',
+            text: 'ATLAS Secure Channel Active. Identity Verified.',
+            timestamp: new Date(),
+          }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error initializing session:', error);
+      setMessages([
+        {
+          id: 'error',
+          role: 'model',
+          text: 'Connection error. Please try again.',
+          timestamp: new Date(),
+        }
+      ]);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -62,28 +124,53 @@ const Concierge: React.FC<{ isGuestMode?: boolean }> = ({ isGuestMode = false })
       return;
     }
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      text: input,
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, userMsg]);
+    const userMessage = input.trim();
     setInput('');
     setIsLoading(true);
 
+    // Add user message immediately to UI
+    const userMsg: Message = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      text: userMessage,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+
     try {
-      const responseText = await sendMessageToConcierge(userMsg.text);
-      const modelMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: responseText,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, modelMsg]);
+      // If no session, start a new one
+      if (!sessionId) {
+        const newSessionId = await conciergeService.startSession(userMessage);
+        setSessionId(newSessionId);
+        
+        // Load all messages from the new session (includes AI response)
+        const sessionMessages = await conciergeService.getSessionMessages(newSessionId);
+        const formattedMessages: Message[] = sessionMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role === MessageRole.User ? 'user' : 'model',
+          text: msg.text,
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(formattedMessages);
+      } else {
+        // Send message to existing session
+        await conciergeService.sendMessage(sessionId, MessageRole.User, userMessage);
+        
+        // Reload messages to get the AI response
+        const sessionMessages = await conciergeService.getSessionMessages(sessionId);
+        const formattedMessages: Message[] = sessionMessages.map(msg => ({
+          id: msg.id,
+          role: msg.role === MessageRole.User ? 'user' : 'model',
+          text: msg.text,
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(formattedMessages);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+      // Remove the temporary user message on error
+      setMessages(prev => prev.filter(msg => msg.id !== userMsg.id));
     } finally {
       setIsLoading(false);
     }
@@ -92,6 +179,30 @@ const Concierge: React.FC<{ isGuestMode?: boolean }> = ({ isGuestMode = false })
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  if (isInitializing) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <View style={styles.statusIndicator}>
+              <View style={styles.statusPulse} />
+              <View style={styles.statusDot} />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>ATLAS CONCIERGE</Text>
+              <Text style={styles.headerSubtitle}>E2E ENCRYPTED • CHANNEL 01</Text>
+            </View>
+          </View>
+          <Icon name="lock" size={12} color="#525252" />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#737373" />
+          <Text style={styles.loadingContainerText}>Initializing secure channel...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -198,6 +309,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loadingContainerText: {
+    color: '#525252',
+    fontSize: 13,
+    fontFamily: 'Courier New',
   },
   header: {
     paddingHorizontal: 24,
