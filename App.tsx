@@ -287,7 +287,10 @@ const App: React.FC = () => {
         {/* Settings Overlay */}
         {isSettingsOpen && (
           <View style={styles.fullScreenOverlay}>
-            <Settings onClose={() => setIsSettingsOpen(false)} />
+            <Settings 
+              onClose={() => setIsSettingsOpen(false)} 
+              isGuestMode={isGuestMode}
+            />
           </View>
         )}
 

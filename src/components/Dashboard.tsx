@@ -18,7 +18,7 @@ import invoicesService, { Invoice } from '../services/invoicesService';
 import promotionsService, { Promotion } from '../services/promotionsService';
 import { MOCK_GUEST_USER, getMockBookings, getMockNotifications, getMockUnreadCount, getMockPaymentMethods, getMockInvoices, getMockPromotions } from '../utils/mockData';
 
-type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'BOOKINGS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
+type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'BOOKINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
 interface DashboardProps {
   onLogout?: () => void;
@@ -39,12 +39,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-
-  // Settings state
-  const [faceIdEnabled, setFaceIdEnabled] = useState(true);
-  const [locationEnabled, setLocationEnabled] = useState(true);
-  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
-  const [stealthModeEnabled, setStealthModeEnabled] = useState(false);
 
   // Form fields for editing
   const [firstName, setFirstName] = useState('');
@@ -255,7 +249,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
            currentSection === 'PROMO' ? 'Promotions' : 
            currentSection === 'BOOKINGS' ? 'Active Bookings' :
            currentSection === 'NOTIFICATIONS' ? 'Notifications' :
-           currentSection === 'SETTINGS' ? 'User Settings' :
            currentSection === 'LEGAL_NOTICE' ? 'Legal Notice' :
            currentSection === 'LEGAL_PRIVACY' ? 'Privacy Policy' :
            currentSection === 'LEGAL_TERMS' ? 'Terms & Conditions' : title}
@@ -602,78 +595,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
           </ScrollView>
         );
       
-      case 'SETTINGS':
-        const settings = [
-          { 
-            label: 'FaceID Authentication', 
-            desc: 'Require biometrics for app entry', 
-            active: faceIdEnabled,
-            onToggle: () => {
-              if (isGuestMode) {
-                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
-                return;
-              }
-              setFaceIdEnabled(!faceIdEnabled);
-            }
-          },
-          { 
-            label: 'Real-time Location', 
-            desc: 'Allow Ops to track device during active missions', 
-            active: locationEnabled,
-            onToggle: () => {
-              if (isGuestMode) {
-                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
-                return;
-              }
-              setLocationEnabled(!locationEnabled);
-            }
-          },
-          { 
-            label: 'Push Notifications', 
-            desc: 'Mission updates and security alerts', 
-            active: pushNotificationsEnabled,
-            onToggle: () => {
-              if (isGuestMode) {
-                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
-                return;
-              }
-              setPushNotificationsEnabled(!pushNotificationsEnabled);
-            }
-          },
-          { 
-            label: 'Stealth Mode', 
-            desc: 'Dim interface and reduce haptics', 
-            active: stealthModeEnabled,
-            onToggle: () => {
-              if (isGuestMode) {
-                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
-                return;
-              }
-              setStealthModeEnabled(!stealthModeEnabled);
-            }
-          },
-        ];
-        return (
-          <ScrollView style={styles.content} contentContainerStyle={styles.settingsContent}>
-            {settings.map((setting, i) => (
-              <TouchableOpacity 
-                key={i} 
-                style={styles.settingItem}
-                onPress={setting.onToggle}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>{setting.label}</Text>
-                  <Text style={styles.settingDesc}>{setting.desc}</Text>
-                </View>
-                <View style={[styles.toggleContainer, setting.active && styles.toggleContainerActive]}>
-                  <View style={[styles.toggleKnob, setting.active && styles.toggleKnobActive]} />
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        );
-      
       case 'LEGAL_PRIVACY':
       case 'LEGAL_TERMS':
       case 'LEGAL_NOTICE':
@@ -740,11 +661,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                     label="NOTIFICATIONS" 
                     onPress={() => setCurrentSection('NOTIFICATIONS')}
                     value={unreadCount > 0 ? `${unreadCount} unread` : ''}
-                  />
-                  <MenuItem 
-                    iconName="settings" 
-                    label="USER SETTINGS" 
-                    onPress={() => setCurrentSection('SETTINGS')} 
                   />
                 </View>
 

@@ -5,27 +5,77 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 
 interface SettingsProps {
   onClose: () => void;
+  isGuestMode?: boolean;
 }
 
-const Settings: React.FC<SettingsProps> = ({ onClose }) => {
+const Settings: React.FC<SettingsProps> = ({ onClose, isGuestMode = false }) => {
   const [settings, setSettings] = useState({
     faceId: true,
     location: true,
     notifications: true,
-    stealthMode: false,
-    autoUpdate: true,
-    dataSync: true,
-    analytics: false,
     haptics: true,
   });
 
   const toggleSetting = (key: keyof typeof settings) => {
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please create an account to modify settings.');
+      return;
+    }
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleDeleteAccount = () => {
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please create an account first.');
+      return;
+    }
+    Alert.alert(
+      'Delete Account',
+      'This action is permanent and cannot be undone. All your data will be deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            // TODO: Implement account deletion API call
+            Alert.alert('Account Deletion', 'Feature will be implemented with backend integration.');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleResetDefaults = () => {
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please create an account first.');
+      return;
+    }
+    Alert.alert(
+      'Reset to Defaults',
+      'Are you sure you want to reset all settings to default values?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Reset', 
+          onPress: () => {
+            setSettings({
+              faceId: true,
+              location: true,
+              notifications: true,
+              haptics: true,
+            });
+            Alert.alert('Success', 'Settings reset to defaults.');
+          }
+        }
+      ]
+    );
   };
 
   const SettingItem = ({ 
@@ -85,12 +135,6 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
             value={settings.location}
             onToggle={() => toggleSetting('location')}
           />
-          <SettingItem
-            label="Stealth Mode"
-            description="Dim interface and reduce haptics"
-            value={settings.stealthMode}
-            onToggle={() => toggleSetting('stealthMode')}
-          />
         </Section>
 
         <Section title="NOTIFICATIONS">
@@ -108,41 +152,21 @@ const Settings: React.FC<SettingsProps> = ({ onClose }) => {
           />
         </Section>
 
-        <Section title="DATA & SYNC">
-          <SettingItem
-            label="Auto-Update"
-            description="Automatically install security patches"
-            value={settings.autoUpdate}
-            onToggle={() => toggleSetting('autoUpdate')}
-          />
-          <SettingItem
-            label="Cloud Synchronization"
-            description="Sync preferences across devices"
-            value={settings.dataSync}
-            onToggle={() => toggleSetting('dataSync')}
-          />
-          <SettingItem
-            label="Usage Analytics"
-            description="Share anonymous usage data"
-            value={settings.analytics}
-            onToggle={() => toggleSetting('analytics')}
-          />
-        </Section>
-
         <View style={styles.dangerZone}>
           <Text style={styles.dangerTitle}>DANGER ZONE</Text>
-          
-          <TouchableOpacity style={styles.dangerButton}>
-            <Icon name="trash-2" size={14} color="#fca5a5" />
-            <Text style={styles.dangerButtonText}>Clear Cache</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity style={styles.dangerButton}>
+          <TouchableOpacity 
+            style={styles.dangerButton}
+            onPress={handleResetDefaults}
+          >
             <Icon name="refresh-cw" size={14} color="#fca5a5" />
             <Text style={styles.dangerButtonText}>Reset to Defaults</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.dangerButton, styles.dangerButtonCritical]}>
+          <TouchableOpacity 
+            style={[styles.dangerButton, styles.dangerButtonCritical]}
+            onPress={handleDeleteAccount}
+          >
             <Icon name="x-circle" size={14} color="#ef4444" />
             <Text style={styles.dangerButtonTextCritical}>Delete Account</Text>
           </TouchableOpacity>
