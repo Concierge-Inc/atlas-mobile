@@ -2,6 +2,9 @@ import { UserDto } from '../services/authService';
 import { Booking, BookingStatus, MoneyDto } from '../services/bookingsService';
 import { AssetListDto } from '../services/assetsService';
 import { Notification } from '../services/notificationsService';
+import { PaymentMethod } from '../services/paymentMethodsService';
+import { Invoice } from '../services/invoicesService';
+import { Promotion } from '../services/promotionsService';
 
 // Mock User Data
 export const MOCK_GUEST_USER: UserDto = {
@@ -207,4 +210,148 @@ export const getMockNotifications = (): Notification[] => {
 
 export const getMockUnreadCount = (): number => {
   return MOCK_NOTIFICATIONS.filter(n => !n.isRead).length;
+};
+
+// Mock Payment Methods
+export const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
+  {
+    id: 'pm-1',
+    userId: 'guest-user-id',
+    type: 'CreditCard',
+    provider: 'American Express',
+    last4: '8849',
+    expiryMonth: 9,
+    expiryYear: 2028,
+    holderName: 'Guest User',
+    isDefault: true,
+    isActive: true,
+    createdAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+// Mock Invoices
+export const MOCK_INVOICES: Invoice[] = [
+  {
+    id: 'inv-1',
+    userId: 'guest-user-id',
+    bookingId: 'booking-1',
+    invoiceNumber: 'INV-2024-001',
+    amount: 85000,
+    tax: 8500,
+    totalAmount: 93500,
+    status: 'Paid',
+    issueDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    dueDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    paidDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    description: 'Aviation Service - Gulfstream G650ER',
+    lineItems: [
+      {
+        description: 'Gulfstream G650ER Charter',
+        quantity: 10,
+        unitPrice: 8500,
+        amount: 85000,
+      },
+    ],
+    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'inv-2',
+    userId: 'guest-user-id',
+    bookingId: 'booking-3',
+    invoiceNumber: 'INV-2024-002',
+    amount: 2500,
+    tax: 250,
+    totalAmount: 2750,
+    status: 'Paid',
+    issueDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+    paidDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    description: 'Armoured Transport - Range Rover Sentinel',
+    lineItems: [
+      {
+        description: 'Range Rover Sentinel Service',
+        quantity: 5,
+        unitPrice: 500,
+        amount: 2500,
+      },
+    ],
+    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'inv-3',
+    userId: 'guest-user-id',
+    bookingId: 'booking-4',
+    invoiceNumber: 'INV-2024-003',
+    amount: 6000,
+    tax: 600,
+    totalAmount: 6600,
+    status: 'Pending',
+    issueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    dueDate: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000).toISOString(),
+    description: 'Protection Services - Executive Team Alpha',
+    lineItems: [
+      {
+        description: 'Executive Protection Team',
+        quantity: 24,
+        unitPrice: 250,
+        amount: 6000,
+      },
+    ],
+    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
+
+export const getMockPaymentMethods = (): PaymentMethod[] => {
+  return MOCK_PAYMENT_METHODS;
+};
+
+export const getMockInvoices = (): Invoice[] => {
+  return MOCK_INVOICES;
+};
+
+// Mock Promotions - For Guest Preview Only (not redeemable)
+export const MOCK_PROMOTIONS: Promotion[] = [
+  {
+    id: 'promo-mock-1',
+    code: 'DEMO-GUEST-ONLY',
+    name: 'Sample Aviation Offer',
+    description: 'This is a sample promotion. Create an account to view real offers and exclusive benefits.',
+    discountType: 'Percentage',
+    discountValue: 15,
+    minPurchaseAmount: 5000,
+    maxDiscountAmount: 2000,
+    startDate: new Date(2024, 10, 1).toISOString(),
+    endDate: new Date(2025, 11, 31).toISOString(),
+    usageLimit: 0,
+    usageCount: 0,
+    isActive: false, // Not active for guests
+    applicableAssetTypes: ['AVIATION'],
+    createdAt: new Date(2024, 10, 1).toISOString(),
+    updatedAt: new Date(2024, 10, 1).toISOString(),
+  },
+  {
+    id: 'promo-mock-2',
+    code: 'DEMO-PREVIEW',
+    name: 'Sample Transport Discount',
+    description: 'Sign up to unlock real promotions and special member-only benefits.',
+    discountType: 'Percentage',
+    discountValue: 20,
+    minPurchaseAmount: 1000,
+    startDate: new Date(2024, 11, 1).toISOString(),
+    endDate: new Date(2025, 11, 31).toISOString(),
+    usageLimit: 0,
+    usageCount: 0,
+    isActive: false, // Not active for guests
+    applicableAssetTypes: ['ARMOURED'],
+    createdAt: new Date(2024, 11, 1).toISOString(),
+    updatedAt: new Date(2024, 11, 1).toISOString(),
+  },
+];
+
+export const getMockPromotions = (): Promotion[] => {
+  return MOCK_PROMOTIONS;
 };

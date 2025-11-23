@@ -13,7 +13,10 @@ import Icon from 'react-native-vector-icons/Feather';
 import authService, { UserDto } from '../services/authService';
 import bookingsService, { Booking, BookingStatus } from '../services/bookingsService';
 import notificationsService, { Notification } from '../services/notificationsService';
-import { MOCK_GUEST_USER, getMockBookings, getMockNotifications, getMockUnreadCount } from '../utils/mockData';
+import paymentMethodsService, { PaymentMethod } from '../services/paymentMethodsService';
+import invoicesService, { Invoice } from '../services/invoicesService';
+import promotionsService, { Promotion } from '../services/promotionsService';
+import { MOCK_GUEST_USER, getMockBookings, getMockNotifications, getMockUnreadCount, getMockPaymentMethods, getMockInvoices, getMockPromotions } from '../utils/mockData';
 
 type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'BOOKINGS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
@@ -31,8 +34,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
   const [activeBookings, setActiveBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // Settings state
+  const [faceIdEnabled, setFaceIdEnabled] = useState(true);
+  const [locationEnabled, setLocationEnabled] = useState(true);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
+  const [stealthModeEnabled, setStealthModeEnabled] = useState(false);
 
   // Form fields for editing
   const [firstName, setFirstName] = useState('');
@@ -81,6 +93,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
         setActiveBookings(mockActiveBookings);
         setUnreadCount(getMockUnreadCount());
         setNotifications(getMockNotifications());
+        setPaymentMethods(getMockPaymentMethods());
+        setInvoices([]); // Don't load invoices for guest users
+        setPromotions(getMockPromotions());
         setLoading(false);
         return;
       }
@@ -95,12 +110,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
       }
 
       // Fetch all bookings and active bookings separately
-      const [allBookings, activeBookingsConfirmed, activeBookingsActive, notifCount, notificationsList] = await Promise.all([
+      const [allBookings, activeBookingsConfirmed, activeBookingsActive, notifCount, notificationsList, paymentMethodsList, invoicesList, promotionsList] = await Promise.all([
         bookingsService.getBookings().catch(() => []),
         bookingsService.getBookings({ status: BookingStatus.Confirmed }).catch(() => []),
         bookingsService.getBookings({ status: BookingStatus.Active }).catch(() => []),
         notificationsService.getUnreadCount().catch(() => 0),
         notificationsService.getNotifications().catch(() => []),
+        paymentMethodsService.getPaymentMethods().catch(() => []),
+        invoicesService.getInvoices().catch(() => []),
+        promotionsService.getPromotions().catch(() => []),
       ]);
 
       setBookings(allBookings || []);
@@ -112,6 +130,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
       setActiveBookings(activeBookingsList);
       setUnreadCount(notifCount);
       setNotifications(notificationsList || []);
+      setPaymentMethods(paymentMethodsList || []);
+      setInvoices(invoicesList || []);
+      setPromotions(promotionsList || []);
     } catch (error) {
       console.error('Failed to load user data:', error);
     } finally {
@@ -344,66 +365,126 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
         );
       
       case 'BILLING':
+        const defaultPaymentMethod = paymentMethods.find(pm => pm.isDefault) || paymentMethods[0];
+        
         return (
           <ScrollView style={styles.content} contentContainerStyle={styles.billingContent}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionHeaderText}>ACTIVE METHOD</Text>
             </View>
             
-            <View style={styles.creditCard}>
-              <View style={styles.creditCardIcon}>
-                <Icon name="credit-card" size={48} color="rgba(255,255,255,0.2)" />
-              </View>
-              <Text style={styles.cardType}>CENTURION</Text>
-              <Text style={styles.cardNumber}>•••• •••• •••• 8849</Text>
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardName}>J.V. STERLING</Text>
-                <Text style={styles.cardExpiry}>09/28</Text>
-              </View>
-            </View>
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderText}>RECENT INVOICES</Text>
-            </View>
-
-            {[
-              { id: 'INV-2023-001', date: 'Oct 12, 2023', amount: '$4,500.00', service: 'Aviation Charter' },
-              { id: 'INV-2023-002', date: 'Sep 28, 2023', amount: '$1,250.00', service: 'Armoured Transport' }
-            ].map(inv => (
-              <View key={inv.id} style={styles.invoiceItem}>
-                <View>
-                  <Text style={styles.invoiceService}>{inv.service}</Text>
-                  <Text style={styles.invoiceDetails}>{inv.id} • {inv.date}</Text>
+            {defaultPaymentMethod ? (
+              <View style={styles.creditCard}>
+                <View style={styles.creditCardIcon}>
+                  <Icon name="credit-card" size={48} color="rgba(255,255,255,0.2)" />
                 </View>
-                <Text style={styles.invoiceAmount}>{inv.amount}</Text>
+                <Text style={styles.cardType}>{defaultPaymentMethod.provider.toUpperCase()}</Text>
+                <Text style={styles.cardNumber}>•••• •••• •••• {defaultPaymentMethod.last4}</Text>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardName}>{defaultPaymentMethod.holderName.toUpperCase()}</Text>
+                  {defaultPaymentMethod.expiryMonth && defaultPaymentMethod.expiryYear && (
+                    <Text style={styles.cardExpiry}>
+                      {String(defaultPaymentMethod.expiryMonth).padStart(2, '0')}/{String(defaultPaymentMethod.expiryYear).slice(-2)}
+                    </Text>
+                  )}
+                </View>
               </View>
-            ))}
+            ) : (
+              <View style={styles.emptyState}>
+                <Icon name="credit-card" size={32} color="#262626" />
+                <Text style={styles.emptyText}>No payment method on file</Text>
+              </View>
+            )}
+
+            {/* Only show invoices for authenticated users */}
+            {!isGuestMode && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionHeaderText}>RECENT INVOICES</Text>
+                </View>
+
+                {invoices.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Icon name="file-text" size={32} color="#262626" />
+                    <Text style={styles.emptyText}>No invoices</Text>
+                  </View>
+                ) : (
+                  invoices.slice(0, 5).map(invoice => {
+                    const getStatusColor = () => {
+                      switch (invoice.status) {
+                        case 'Paid': return '#22c55e';
+                        case 'Pending': return '#eab308';
+                        case 'Overdue': return '#ef4444';
+                        default: return '#737373';
+                      }
+                    };
+                    
+                    return (
+                      <View key={invoice.id} style={styles.invoiceItem}>
+                        <View style={styles.invoiceLeft}>
+                          <Text style={styles.invoiceService}>{invoice.description}</Text>
+                          <Text style={styles.invoiceDetails}>
+                            {invoice.invoiceNumber} • {new Date(invoice.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </Text>
+                        </View>
+                        <View style={styles.invoiceRight}>
+                          <Text style={styles.invoiceAmount}>
+                            ${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </Text>
+                          <View style={[styles.invoiceStatus, { backgroundColor: getStatusColor() }]}>
+                            <Text style={styles.invoiceStatusText}>{invoice.status.toUpperCase()}</Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })
+                )}
+              </>
+            )}
           </ScrollView>
         );
       
       case 'PROMO':
         return (
           <ScrollView style={styles.content} contentContainerStyle={styles.promoContent}>
-            <View style={styles.promoCard}>
-              <View style={styles.promoGlow} />
-              <Text style={styles.promoTitle}>Winter Aviation Credit</Text>
-              <Text style={styles.promoDescription}>
-                Receive complimentary ground transport with any international jet charter booked before December 2023.
-              </Text>
-              <View style={styles.promoCodeContainer}>
-                <Text style={styles.promoCode}>CODE: ALTITUDE-23</Text>
+            {promotions.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Icon name="gift" size={32} color="#262626" />
+                <Text style={styles.emptyText}>No promotions available</Text>
               </View>
-            </View>
-
-            <View style={[styles.promoCard, styles.promoCardExpired]}>
-              <Text style={styles.promoTitleExpired}>Monaco GP Access</Text>
-              <Text style={styles.promoDescriptionExpired}>
-                Exclusive paddock club access included with helicopter transfers.
-              </Text>
-              <View style={styles.promoCodeContainer}>
-                <Text style={styles.promoCodeExpired}>EXPIRED</Text>
-              </View>
-            </View>
+            ) : (
+              promotions.map((promo) => {
+                const isExpired = !promo.isActive || new Date(promo.endDate) < new Date();
+                const isLimitReached = promo.usageLimit && promo.usageCount >= promo.usageLimit;
+                
+                return (
+                  <View 
+                    key={promo.id} 
+                    style={[
+                      styles.promoCard, 
+                      (isExpired || isLimitReached) && styles.promoCardExpired
+                    ]}
+                  >
+                    {!isExpired && !isLimitReached && <View style={styles.promoGlow} />}
+                    <Text style={isExpired || isLimitReached ? styles.promoTitleExpired : styles.promoTitle}>
+                      {promo.name}
+                    </Text>
+                    <Text style={isExpired || isLimitReached ? styles.promoDescriptionExpired : styles.promoDescription}>
+                      {promo.description}
+                    </Text>
+                    <View style={styles.promoCodeContainer}>
+                      {isExpired || isLimitReached ? (
+                        <Text style={styles.promoCodeExpired}>
+                          {isLimitReached ? 'LIMIT REACHED' : 'EXPIRED'}
+                        </Text>
+                      ) : (
+                        <Text style={styles.promoCode}>CODE: {promo.code}</Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </ScrollView>
         );
       
@@ -523,15 +604,64 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
       
       case 'SETTINGS':
         const settings = [
-          { label: 'FaceID Authentication', desc: 'Require biometrics for app entry', active: true },
-          { label: 'Real-time Location', desc: 'Allow Ops to track device during active missions', active: true },
-          { label: 'Push Notifications', desc: 'Mission updates and security alerts', active: true },
-          { label: 'Stealth Mode', desc: 'Dim interface and reduce haptics', active: false },
+          { 
+            label: 'FaceID Authentication', 
+            desc: 'Require biometrics for app entry', 
+            active: faceIdEnabled,
+            onToggle: () => {
+              if (isGuestMode) {
+                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
+                return;
+              }
+              setFaceIdEnabled(!faceIdEnabled);
+            }
+          },
+          { 
+            label: 'Real-time Location', 
+            desc: 'Allow Ops to track device during active missions', 
+            active: locationEnabled,
+            onToggle: () => {
+              if (isGuestMode) {
+                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
+                return;
+              }
+              setLocationEnabled(!locationEnabled);
+            }
+          },
+          { 
+            label: 'Push Notifications', 
+            desc: 'Mission updates and security alerts', 
+            active: pushNotificationsEnabled,
+            onToggle: () => {
+              if (isGuestMode) {
+                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
+                return;
+              }
+              setPushNotificationsEnabled(!pushNotificationsEnabled);
+            }
+          },
+          { 
+            label: 'Stealth Mode', 
+            desc: 'Dim interface and reduce haptics', 
+            active: stealthModeEnabled,
+            onToggle: () => {
+              if (isGuestMode) {
+                Alert.alert('Guest Mode', 'Please create an account to modify settings.');
+                return;
+              }
+              setStealthModeEnabled(!stealthModeEnabled);
+            }
+          },
         ];
         return (
           <ScrollView style={styles.content} contentContainerStyle={styles.settingsContent}>
             {settings.map((setting, i) => (
-              <View key={i} style={styles.settingItem}>
+              <TouchableOpacity 
+                key={i} 
+                style={styles.settingItem}
+                onPress={setting.onToggle}
+                activeOpacity={0.7}
+              >
                 <View style={styles.settingInfo}>
                   <Text style={styles.settingLabel}>{setting.label}</Text>
                   <Text style={styles.settingDesc}>{setting.desc}</Text>
@@ -539,7 +669,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                 <View style={[styles.toggleContainer, setting.active && styles.toggleContainerActive]}>
                   <View style={[styles.toggleKnob, setting.active && styles.toggleKnobActive]} />
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         );
@@ -876,13 +1006,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier New',
   },
   invoiceItem: {
+    marginHorizontal: 24,
+    marginBottom: 12,
+    padding: 16,
+    backgroundColor: 'rgba(23,23,23,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(38,38,38,0.6)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(23,23,23,0.5)',
+  },
+  invoiceLeft: {
+    flex: 1,
+    marginRight: 16,
   },
   invoiceService: {
     fontSize: 12,
@@ -895,10 +1031,24 @@ const styles = StyleSheet.create({
     color: '#525252',
     fontFamily: 'Courier New',
   },
+  invoiceRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   invoiceAmount: {
     fontSize: 12,
     color: '#fff',
     fontFamily: 'Courier New',
+  },
+  invoiceStatus: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  invoiceStatusText: {
+    fontSize: 7,
+    color: '#0a0a0a',
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   promoContent: {
     paddingTop: 32,
