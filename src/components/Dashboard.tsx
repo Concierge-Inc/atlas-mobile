@@ -13,6 +13,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import authService, { UserDto } from '../services/authService';
 import bookingsService, { Booking, BookingStatus } from '../services/bookingsService';
 import notificationsService, { Notification } from '../services/notificationsService';
+import { MOCK_GUEST_USER, getMockBookings, getMockNotifications, getMockUnreadCount } from '../utils/mockData';
 
 type SectionType = 'MAIN' | 'PERSONAL' | 'PHONE' | 'BILLING' | 'PROMO' | 'NOTIFICATIONS' | 'SETTINGS' | 'LEGAL_PRIVACY' | 'LEGAL_TERMS' | 'LEGAL_NOTICE';
 
@@ -20,9 +21,10 @@ interface DashboardProps {
   onLogout?: () => void;
   initialSection?: SectionType;
   onBack?: () => void;
+  isGuestMode?: boolean;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack }) => {
+const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack, isGuestMode = false }) => {
   const [currentSection, setCurrentSection] = useState<SectionType>(initialSection || 'MAIN');
   const [user, setUser] = useState<UserDto | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -61,6 +63,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
   const loadUserData = async () => {
     try {
       setLoading(true);
+      
+      // Use mock data for guest mode
+      if (isGuestMode) {
+        setUser(MOCK_GUEST_USER);
+        setFirstName(MOCK_GUEST_USER.firstName);
+        setLastName(MOCK_GUEST_USER.lastName);
+        setPhoneNumber(MOCK_GUEST_USER.phoneNumber || '');
+        
+        const mockBookings = getMockBookings();
+        const mockActiveBookings = [
+          ...getMockBookings(BookingStatus.Confirmed),
+          ...getMockBookings(BookingStatus.Active),
+        ];
+        
+        setBookings(mockBookings);
+        setActiveBookings(mockActiveBookings);
+        setUnreadCount(getMockUnreadCount());
+        setNotifications(getMockNotifications());
+        setLoading(false);
+        return;
+      }
       
       // Fetch user profile
       const userData = await authService.getProfile();
@@ -112,6 +135,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
+    // Prevent action in guest mode
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please sign in to manage notifications.');
+      return;
+    }
+    
     try {
       await notificationsService.markAsRead(notificationId);
       setNotifications(prev =>
@@ -124,6 +153,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
   };
 
   const handleUpdateProfile = async () => {
+    // Prevent action in guest mode
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please sign in to update your profile.');
+      return;
+    }
+    
     try {
       setUpdating(true);
       await authService.updateProfile({
@@ -219,7 +254,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholderTextColor="#404040"
-                editable={!updating}
+                editable={!updating && !isGuestMode}
               />
             </View>
             <View style={styles.formGroup}>
@@ -229,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
                 value={lastName}
                 onChangeText={setLastName}
                 placeholderTextColor="#404040"
-                editable={!updating}
+                editable={!updating && !isGuestMode}
               />
             </View>
             <View style={styles.formGroup}>
@@ -250,17 +285,17 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
                 onChangeText={handlePhoneChange}
                 placeholderTextColor="#404040"
                 keyboardType="phone-pad"
-                editable={!updating}
+                editable={!updating && !isGuestMode}
               />
             </View>
             
             <TouchableOpacity 
               style={[
                 styles.saveButton, 
-                (updating || !hasProfileChanged()) && styles.saveButtonDisabled
+                (updating || !hasProfileChanged() || isGuestMode) && styles.saveButtonDisabled
               ]} 
               onPress={handleUpdateProfile}
-              disabled={updating || !hasProfileChanged()}
+              disabled={updating || !hasProfileChanged() || isGuestMode}
             >
               {updating ? (
                 <ActivityIndicator size="small" color="#0a0a0a" />
@@ -283,7 +318,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
                 placeholderTextColor="#404040"
                 placeholder="+1 (555) 000-0000"
                 keyboardType="phone-pad"
-                editable={!updating}
+                editable={!updating && !isGuestMode}
               />
               <Text style={styles.inputHint}>
                 International format recommended (e.g., +1 555 000 0000)
@@ -293,10 +328,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack 
             <TouchableOpacity 
               style={[
                 styles.saveButton, 
-                (updating || !hasProfileChanged()) && styles.saveButtonDisabled
+                (updating || !hasProfileChanged() || isGuestMode) && styles.saveButtonDisabled
               ]} 
               onPress={handleUpdateProfile}
-              disabled={updating || !hasProfileChanged()}
+              disabled={updating || !hasProfileChanged() || isGuestMode}
             >
               {updating ? (
                 <ActivityIndicator size="small" color="#0a0a0a" />

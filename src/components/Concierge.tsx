@@ -14,7 +14,7 @@ import Icon from 'react-native-vector-icons/Feather';
 import { sendMessageToConcierge } from '../services/geminiService';
 import { Message } from '../utils/types';
 
-const Concierge: React.FC = () => {
+const Concierge: React.FC<{ isGuestMode?: boolean }> = ({ isGuestMode = false }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -37,6 +37,30 @@ const Concierge: React.FC = () => {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+
+    // Prevent sending in guest mode
+    if (isGuestMode) {
+      const userMsg: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        text: input,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, userMsg]);
+      setInput('');
+      
+      // Show guest mode message
+      setTimeout(() => {
+        const guestMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          role: 'model',
+          text: 'ATLAS Concierge services require an authenticated account. Please sign in or create an account to chat with our concierge team.',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, guestMsg]);
+      }, 500);
+      return;
+    }
 
     const userMsg: Message = {
       id: Date.now().toString(),

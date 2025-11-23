@@ -13,20 +13,27 @@ import Icon from 'react-native-vector-icons/Feather';
 import { ServiceCategory } from '../utils/types';
 import bookingsService, { Booking as ApiBooking } from '../services/bookingsService';
 import signalrService from '../services/signalrService';
+import { getMockBookings } from '../utils/mockData';
 
 const { width } = Dimensions.get('window');
 
 interface BookingTrackerProps {
   onChat: () => void;
+  isGuestMode?: boolean;
 }
 
-const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
+const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat, isGuestMode = false }) => {
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'PAST' | 'CANCELLED'>('UPCOMING');
   const [bookings, setBookings] = useState<ApiBooking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadBookings();
+
+    // Skip SignalR subscriptions in guest mode
+    if (isGuestMode) {
+      return;
+    }
 
     // Subscribe to real-time booking updates
     const unsubscribeStatus = signalrService.onBookingStatusChanged((update) => {
@@ -50,6 +57,15 @@ const BookingTracker: React.FC<BookingTrackerProps> = ({ onChat }) => {
   const loadBookings = async () => {
     try {
       setLoading(true);
+      
+      // Use mock data for guest mode
+      if (isGuestMode) {
+        const mockBookings = getMockBookings();
+        setBookings(mockBookings);
+        setLoading(false);
+        return;
+      }
+      
       const bookings = await bookingsService.getBookings();
       setBookings(bookings);
     } catch (error) {

@@ -18,6 +18,7 @@ import { ServiceCategory } from '../utils/types';
 import bookingsService from '../services/bookingsService';
 import assetsService, { AssetListDto } from '../services/assetsService';
 import signalrService from '../services/signalrService';
+import { getMockAssets } from '../utils/mockData';
 
 const { width } = Dimensions.get('window');
 
@@ -25,9 +26,10 @@ interface BookingFlowProps {
   category: ServiceCategory;
   onBack: () => void;
   onComplete: () => void;
+  isGuestMode?: boolean;
 }
 
-const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete }) => {
+const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete, isGuestMode = false }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedAsset, setSelectedAsset] = useState<AssetListDto | null>(null);
   const [includeProtection, setIncludeProtection] = useState(false);
@@ -49,6 +51,16 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
   const loadAssets = async () => {
     try {
       setLoadingAssets(true);
+      
+      // Use mock data for guest mode
+      if (isGuestMode) {
+        const mockAssets = getMockAssets(category);
+        console.log(`✅ Loaded ${mockAssets.length} mock assets for category ${category} (Guest Mode)`);
+        setAssets(mockAssets);
+        setLoadingAssets(false);
+        return;
+      }
+      
       const assetsData = await assetsService.getAssets({ category });
       console.log(`✅ Loaded ${assetsData.length} assets for category ${category}`);
       if (assetsData.length > 0) {
@@ -95,6 +107,16 @@ const BookingFlow: React.FC<BookingFlowProps> = ({ category, onBack, onComplete 
 
   const handleConfirm = async () => {
     if (!selectedAsset) return;
+
+    // Show guest mode restriction
+    if (isGuestMode) {
+      Alert.alert(
+        'Guest Mode',
+        'Please create an account or sign in to complete your booking.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
 
     setIsProcessing(true);
 

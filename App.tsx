@@ -27,6 +27,7 @@ type AuthView = 'LOGIN' | 'REGISTER' | null;
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isGuestMode, setIsGuestMode] = useState(false);
   const [authView, setAuthView] = useState<AuthView>('LOGIN');
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [view, setView] = useState<ViewState>(ViewState.HOME);
@@ -70,6 +71,7 @@ const App: React.FC = () => {
     // Auth is handled by Login/Registration components
     // Just update the state here
     setIsAuthenticated(true);
+    setIsGuestMode(false);
     
     // Start SignalR connection after successful login
     try {
@@ -80,14 +82,24 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGuestLogin = () => {
+    // Enable guest mode without authentication
+    setIsGuestMode(true);
+    setIsAuthenticated(true);
+    console.log('✅ Guest mode activated');
+  };
+
   const handleLogout = async () => {
     try {
-      // Stop SignalR connection before logout
-      await signalrService.stop();
-      console.log('✅ SignalR disconnected');
+      // Stop SignalR connection before logout (only if not guest)
+      if (!isGuestMode) {
+        await signalrService.stop();
+        console.log('✅ SignalR disconnected');
+        await authService.logout();
+      }
       
-      await authService.logout();
       setIsAuthenticated(false);
+      setIsGuestMode(false);
       setAuthView('LOGIN');
       setView(ViewState.HOME);
     } catch (error) {
@@ -137,19 +149,20 @@ const App: React.FC = () => {
               category={selectedCategory}
               onBack={() => navigateTo(ViewState.HOME)}
               onComplete={() => navigateTo(ViewState.CONCIERGE)}
+              isGuestMode={isGuestMode}
             />
           );
         }
         return null;
       
       case ViewState.CONCIERGE:
-        return <Concierge />;
+        return <Concierge isGuestMode={isGuestMode} />;
       
       case ViewState.PROFILE:
-        return <Dashboard onLogout={handleLogout} />;
+        return <Dashboard onLogout={handleLogout} isGuestMode={isGuestMode} />;
       
       case ViewState.NOTIFICATIONS:
-        return <Notifications onBack={() => navigateTo(ViewState.HOME)} />;
+        return <Notifications onBack={() => navigateTo(ViewState.HOME)} isGuestMode={isGuestMode} />;
       
       case ViewState.HOME:
       default:
@@ -203,7 +216,7 @@ const App: React.FC = () => {
             </View>
 
             {/* Booking Tracker */}
-            <BookingTracker onChat={() => navigateTo(ViewState.CONCIERGE)} />
+            <BookingTracker onChat={() => navigateTo(ViewState.CONCIERGE)} isGuestMode={isGuestMode} />
 
             {/* Footer Icon */}
             <View style={styles.footer}>
@@ -234,6 +247,7 @@ const App: React.FC = () => {
         {authView === 'LOGIN' ? (
           <Login 
             onLogin={handleLogin}
+            onGuestLogin={handleGuestLogin}
             onSwitchToRegister={() => setAuthView('REGISTER')}
           />
         ) : (

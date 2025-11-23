@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import notificationsService, { Notification, NotificationType } from '../services/notificationsService';
+import { getMockNotifications } from '../utils/mockData';
 
 interface NotificationsProps {
   onBack: () => void;
+  isGuestMode?: boolean;
 }
 
-const Notifications: React.FC<NotificationsProps> = ({ onBack }) => {
+const Notifications: React.FC<NotificationsProps> = ({ onBack, isGuestMode = false }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,6 +31,18 @@ const Notifications: React.FC<NotificationsProps> = ({ onBack }) => {
   const loadNotifications = async () => {
     try {
       setLoading(true);
+      
+      // Use mock data for guest mode
+      if (isGuestMode) {
+        const mockNotifications = getMockNotifications();
+        const filteredMockNotifications = filter === 'unread' 
+          ? mockNotifications.filter(n => !n.isRead)
+          : mockNotifications;
+        setNotifications(filteredMockNotifications);
+        setLoading(false);
+        return;
+      }
+      
       const data = await notificationsService.getNotifications({
         onlyUnread: filter === 'unread',
       });
@@ -48,6 +62,12 @@ const Notifications: React.FC<NotificationsProps> = ({ onBack }) => {
   };
 
   const handleMarkAsRead = async (notificationId: string) => {
+    // Prevent action in guest mode
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please sign in to manage notifications.');
+      return;
+    }
+    
     try {
       await notificationsService.markAsRead(notificationId);
       // Update local state
@@ -60,6 +80,12 @@ const Notifications: React.FC<NotificationsProps> = ({ onBack }) => {
   };
 
   const handleMarkAllAsRead = async () => {
+    // Prevent action in guest mode
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please sign in to manage notifications.');
+      return;
+    }
+    
     try {
       await notificationsService.markAllAsRead();
       // Update local state

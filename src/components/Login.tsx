@@ -17,10 +17,11 @@ import ForgotPassword from './ForgotPassword';
 
 interface LoginProps {
   onLogin: () => void;
+  onGuestLogin: () => void;
   onSwitchToRegister: () => void;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, onGuestLogin, onSwitchToRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -200,7 +201,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
           {/* Guest Login */}
           <TouchableOpacity 
             style={styles.guestButton}
-            onPress={onLogin}
+            onPress={onGuestLogin}
             disabled={isLoading}
           >
             <Text style={styles.guestButtonText}>CONTINUE AS GUEST</Text>
