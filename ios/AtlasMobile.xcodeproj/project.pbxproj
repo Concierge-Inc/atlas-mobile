@@ -282,6 +282,7 @@
 					"-ObjC",
 					"-lc++",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.reactjs.native.example.AtlasMobile;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.betulcalik.atlasmobile;
 				PRODUCT_NAME = AtlasMobile;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -310,6 +311,7 @@
 					"-ObjC",
 					"-lc++",
 				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.reactjs.native.example.AtlasMobile;
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.betulcalik.atlasmobile;
 				PRODUCT_NAME = AtlasMobile;
 				SWIFT_VERSION = 5.0;

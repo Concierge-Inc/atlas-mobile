@@ -4,9 +4,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = Config.API_URL || 'http://localhost:5001/api';
 
 export enum MessageRole {
-  User = 'User',
-  Model = 'Model',
-  System = 'System',
+  User = 0,
+  Model = 1,
+  System = 2,
 }
 
 export interface ConciergeMessage {
@@ -43,7 +43,10 @@ class ConciergeService {
       const url = `${API_URL}/concierge/sessions/${sessionId}/messages`;
       console.log('🔵 SESSION MESSAGES REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -71,7 +74,10 @@ class ConciergeService {
       const url = `${API_URL}/concierge/sessions/latest`;
       console.log('🔵 GET LATEST SESSION REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,

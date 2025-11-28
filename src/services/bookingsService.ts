@@ -17,27 +17,28 @@ export interface MoneyDto {
   currency: string;
 }
 
+export enum ServiceCategory {
+  Aviation = 0,
+  Chauffeur = 1,
+  Armoured = 2,
+  Protection = 3
+}
+
 export interface Booking {
   id: string;
   bookingNumber: string;
   assetName: string;
-  serviceType: number;
-  status: number; // Backend returns enum as number (0=Pending, 1=Confirmed, 2=Active, 3=Completed, 4=Cancelled)
+  serviceType: ServiceCategory;
+  status: BookingStatus;
   serviceDate: string;
   pickupLocation: string;
   dropoffLocation: string;
   estimatedCost: MoneyDto | null;
 }
 
-export interface BookingListResponse {
-  data: Booking[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-}
-
 export interface CreateBookingRequest {
   assetId: string;
+  serviceType: ServiceCategory;
   serviceDate: string;
   serviceTime?: string;
   pickupLocation: string;
@@ -47,10 +48,10 @@ export interface CreateBookingRequest {
 }
 
 class BookingsService {
-  private async getAuthHeaders(includeContentType: boolean = true): Promise<Record<string, string>> {
+  private async getAuthHeaders(): Promise<Record<string, string>> {
     const token = await AsyncStorage.getItem('accessToken');
     return {
-      ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
+      'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   }
@@ -65,7 +66,10 @@ class BookingsService {
       const url = `${API_URL}/bookings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       console.log('🔵 BOOKINGS REQUEST:', url);
 
-      const headers = await this.getAuthHeaders(false); // GET request, no Content-Type needed
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -117,12 +121,15 @@ class BookingsService {
     }
   }
 
-  async confirmBooking(bookingId: string): Promise<Booking> {
+  async confirmBooking(bookingId: string): Promise<void> {
     try {
       const url = `${API_URL}/bookings/${bookingId}/confirm`;
       console.log('🔵 CONFIRM BOOKING REQUEST:', url);
 
-      const headers = await this.getAuthHeaders(false); // POST with no body
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -136,16 +143,14 @@ class BookingsService {
         throw new Error(errorData.message || 'Failed to confirm booking');
       }
 
-      const data = await response.json() as Booking;
-      console.log('✅ CONFIRM BOOKING SUCCESS:', data.id);
-      return data;
+      console.log('✅ CONFIRM BOOKING SUCCESS');
     } catch (error) {
       console.error('🔴 CONFIRM BOOKING SERVICE ERROR:', error);
       throw error;
     }
   }
 
-  async cancelBooking(bookingId: string, reason?: string): Promise<Booking> {
+  async cancelBooking(bookingId: string, reason?: string): Promise<void> {
     try {
       const url = `${API_URL}/bookings/${bookingId}/cancel`;
       console.log('🔵 CANCEL BOOKING REQUEST:', url, { reason });
@@ -165,9 +170,7 @@ class BookingsService {
         throw new Error(errorData.message || 'Failed to cancel booking');
       }
 
-      const data = await response.json() as Booking;
-      console.log('✅ CANCEL BOOKING SUCCESS:', data.id);
-      return data;
+      console.log('✅ CANCEL BOOKING SUCCESS');
     } catch (error) {
       console.error('🔴 CANCEL BOOKING SERVICE ERROR:', error);
       throw error;

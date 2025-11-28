@@ -5,48 +5,31 @@ const API_URL = Config.API_URL || 'http://localhost:5001/api';
 
 export interface Promotion {
   id: string;
-  code: string;
-  name: string;
+  title: string;
   description: string;
-  discountType: 'Percentage' | 'Fixed';
-  discountValue: number;
-  minPurchaseAmount?: number;
-  maxDiscountAmount?: number;
+  promoCode: string;
   startDate: string;
   endDate: string;
-  usageLimit?: number;
-  usageCount: number;
+  discountType: number; // DiscountType enum: 0=Percentage, 1=Fixed
+  discountValue?: number;
+  serviceCategory?: number; // ServiceCategory enum
+  maxRedemptions?: number;
+  currentRedemptions: number;
   isActive: boolean;
-  applicableAssetTypes?: string[];
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ValidatePromotionResponse {
-  isValid: boolean;
-  promotion?: Promotion;
-  discountAmount?: number;
-  message: string;
-}
-
-export interface ApplyPromotionRequest {
-  code: string;
-  bookingId: string;
-}
-
 export interface CreatePromotionRequest {
-  code: string;
-  name: string;
+  title: string;
   description: string;
-  discountType: 'Percentage' | 'Fixed';
-  discountValue: number;
-  minPurchaseAmount?: number;
-  maxDiscountAmount?: number;
+  promoCode: string;
   startDate: string;
   endDate: string;
-  usageLimit?: number;
-  isActive: boolean;
-  applicableAssetTypes?: string[];
+  discountType: number;
+  discountValue?: number;
+  serviceCategory?: number;
+  maxRedemptions?: number;
 }
 
 class PromotionsService {
@@ -58,12 +41,18 @@ class PromotionsService {
     };
   }
 
-  async getActivePromotions(): Promise<Promotion[]> {
+  async getActivePromotions(category?: number): Promise<Promotion[]> {
     try {
-      const url = `${API_URL}/promotions/active`;
+      const queryParams = new URLSearchParams();
+      if (category !== undefined) queryParams.append('category', category.toString());
+      
+      const url = `${API_URL}/promotions/active${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       console.log('🔵 ACTIVE PROMOTIONS REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -86,12 +75,15 @@ class PromotionsService {
     }
   }
 
-  async validatePromoCode(code: string, amount: number): Promise<ValidatePromotionResponse> {
+  async validatePromoCode(code: string): Promise<Promotion> {
     try {
-      const url = `${API_URL}/promotions/validate/${code}?amount=${amount}`;
+      const url = `${API_URL}/promotions/validate/${code}`;
       console.log('🔵 VALIDATE PROMO CODE REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -105,8 +97,8 @@ class PromotionsService {
         throw new Error(errorData.message || 'Failed to validate promo code');
       }
 
-      const data = await response.json() as ValidatePromotionResponse;
-      console.log('✅ VALIDATE PROMO CODE SUCCESS:', data.isValid);
+      const data = await response.json() as Promotion;
+      console.log('✅ VALIDATE PROMO CODE SUCCESS:', data.code);
       return data;
     } catch (error) {
       console.error('🔴 VALIDATE PROMO CODE SERVICE ERROR:', error);
@@ -114,16 +106,17 @@ class PromotionsService {
     }
   }
 
-  async applyPromotion(applyData: ApplyPromotionRequest): Promise<void> {
+  async applyPromotion(promoCode: string, originalAmount: number): Promise<number> {
     try {
       const url = `${API_URL}/promotions/apply`;
-      console.log('🔵 APPLY PROMOTION REQUEST:', url, applyData);
+      const requestData = { promoCode, originalAmount };
+      console.log('🔵 APPLY PROMOTION REQUEST:', url, requestData);
 
       const headers = await this.getAuthHeaders();
       const response = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(applyData),
+        body: JSON.stringify(requestData),
       });
 
       console.log('🔵 APPLY PROMOTION RESPONSE STATUS:', response.status);
@@ -134,7 +127,9 @@ class PromotionsService {
         throw new Error(errorData.message || 'Failed to apply promotion');
       }
 
-      console.log('✅ APPLY PROMOTION SUCCESS');
+      const data = await response.json() as { discountedAmount: number };
+      console.log('✅ APPLY PROMOTION SUCCESS:', data.discountedAmount);
+      return data.discountedAmount;
     } catch (error) {
       console.error('🔴 APPLY PROMOTION SERVICE ERROR:', error);
       throw error;

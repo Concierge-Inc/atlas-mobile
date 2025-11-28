@@ -3,14 +3,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = Config.API_URL || 'http://localhost:5001/api';
 
-export type NotificationType = 
-  | 'BookingCreated' 
-  | 'BookingConfirmed' 
-  | 'BookingCancelled' 
-  | 'FlightDelayed' 
-  | 'PaymentReceived' 
-  | 'SecurityAlert' 
-  | 'General';
+export enum NotificationType {
+  BookingCreated = 0,
+  BookingConfirmed = 1,
+  BookingCancelled = 2,
+  FlightDelayed = 3,
+  PaymentReceived = 4,
+  SecurityAlert = 5,
+  General = 6
+}
 
 export interface Notification {
   id: string;

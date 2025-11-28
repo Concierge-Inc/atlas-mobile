@@ -8,13 +8,16 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
 import authService, { UserDto } from '../services/authService';
 import bookingsService, { Booking, BookingStatus } from '../services/bookingsService';
 import notificationsService, { Notification } from '../services/notificationsService';
 import paymentMethodsService, { PaymentMethod } from '../services/paymentMethodsService';
-import invoicesService, { Invoice } from '../services/invoicesService';
+import invoicesService, { Invoice, InvoiceStatus } from '../services/invoicesService';
 import promotionsService, { Promotion } from '../services/promotionsService';
 import { MOCK_GUEST_USER, getMockBookings, getMockNotifications, getMockUnreadCount, getMockPaymentMethods, getMockInvoices, getMockPromotions } from '../utils/mockData';
 
@@ -39,17 +42,111 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
+  const [addingCard, setAddingCard] = useState(false);
 
   // Form fields for editing
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  // Payment card form fields
+  const [cardHolderName, setCardHolderName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardType, setCardType] = useState('Visa');
+  const [expiryMonth, setExpiryMonth] = useState('');
+  const [expiryYear, setExpiryYear] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+  const [setAsDefault, setSetAsDefault] = useState(true);
+
   // Handle phone number input (only numbers, spaces, +, -, (, ))
   const handlePhoneChange = (text: string) => {
     // Allow only numbers and phone formatting characters
     const cleaned = text.replace(/[^0-9+\-() ]/g, '');
     setPhoneNumber(cleaned);
+  };
+
+  // Handle card number input (format: 1234 5678 9012 3456)
+  const handleCardNumberChange = (text: string) => {
+    const cleaned = text.replace(/\s/g, '').replace(/[^0-9]/g, '');
+    const formatted = cleaned.match(/.{1,4}/g)?.join(' ') || cleaned;
+    setCardNumber(formatted.slice(0, 19)); // Max 16 digits + 3 spaces
+  };
+
+  // Detect card type from number
+  const detectCardType = (number: string) => {
+    const cleaned = number.replace(/\s/g, '');
+    if (cleaned.startsWith('4')) return 'Visa';
+    if (cleaned.startsWith('5')) return 'Mastercard';
+    if (cleaned.startsWith('3')) return 'Amex';
+    return 'Visa';
+  };
+
+  // Reset card form
+  const resetCardForm = () => {
+    setCardHolderName('');
+    setCardNumber('');
+    setCardType('Visa');
+    setExpiryMonth('');
+    setExpiryYear('');
+    setBillingAddress('');
+    setSetAsDefault(true);
+  };
+
+  // Handle adding payment method
+  const handleAddPaymentMethod = async () => {
+    if (isGuestMode) {
+      Alert.alert('Guest Mode', 'Please sign in to add payment methods');
+      return;
+    }
+
+    if (!cardHolderName || !cardNumber || !expiryMonth || !expiryYear) {
+      Alert.alert('Missing Information', 'Please fill in all required fields');
+      return;
+    }
+
+    const cleaned = cardNumber.replace(/\s/g, '');
+    if (cleaned.length < 15 || cleaned.length > 16) {
+      Alert.alert('Invalid Card', 'Please enter a valid card number');
+      return;
+    }
+
+    const month = parseInt(expiryMonth);
+    const year = parseInt(expiryYear);
+    if (month < 1 || month > 12) {
+      Alert.alert('Invalid Expiry', 'Please enter a valid month (1-12)');
+      return;
+    }
+
+    try {
+      setAddingCard(true);
+      const last4 = cleaned.slice(-4);
+      const detectedType = detectCardType(cleaned);
+      
+      await paymentMethodsService.addPaymentMethod({
+        type: 0, // CreditCard
+        cardType: detectedType,
+        last4Digits: last4,
+        cardHolderName,
+        expiryMonth: month,
+        expiryYear: year,
+        billingAddress: billingAddress || undefined,
+        setAsDefault,
+      });
+
+      // Reload payment methods
+      const methods = await paymentMethodsService.getPaymentMethods();
+      setPaymentMethods(methods);
+
+      Alert.alert('Success', 'Payment method added successfully');
+      setShowAddCardModal(false);
+      resetCardForm();
+    } catch (error) {
+      console.error('Error adding payment method:', error);
+      Alert.alert('Error', 'Failed to add payment method');
+    } finally {
+      setAddingCard(false);
+    }
   };
 
   // Check if profile has been modified
@@ -371,10 +468,10 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                 <View style={styles.creditCardIcon}>
                   <Icon name="credit-card" size={48} color="rgba(255,255,255,0.2)" />
                 </View>
-                <Text style={styles.cardType}>{defaultPaymentMethod.provider.toUpperCase()}</Text>
-                <Text style={styles.cardNumber}>•••• •••• •••• {defaultPaymentMethod.last4}</Text>
+                <Text style={styles.cardType}>{(defaultPaymentMethod.cardType || 'CARD').toUpperCase()}</Text>
+                <Text style={styles.cardNumber}>•••• •••• •••• {defaultPaymentMethod.last4Digits || defaultPaymentMethod.last4}</Text>
                 <View style={styles.cardFooter}>
-                  <Text style={styles.cardName}>{defaultPaymentMethod.holderName.toUpperCase()}</Text>
+                  <Text style={styles.cardName}>{(defaultPaymentMethod.cardHolderName || 'CARDHOLDER').toUpperCase()}</Text>
                   {defaultPaymentMethod.expiryMonth && defaultPaymentMethod.expiryYear && (
                     <Text style={styles.cardExpiry}>
                       {String(defaultPaymentMethod.expiryMonth).padStart(2, '0')}/{String(defaultPaymentMethod.expiryYear).slice(-2)}
@@ -386,6 +483,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
               <View style={styles.emptyState}>
                 <Icon name="credit-card" size={32} color="#262626" />
                 <Text style={styles.emptyText}>No payment method on file</Text>
+                {!isGuestMode && (
+                  <TouchableOpacity 
+                    style={styles.addCardButton}
+                    onPress={() => setShowAddCardModal(true)}
+                  >
+                    <Icon name="plus" size={16} color="#fff" />
+                    <Text style={styles.addCardButtonText}>ADD PAYMENT METHOD</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
@@ -405,27 +511,38 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                   invoices.slice(0, 5).map(invoice => {
                     const getStatusColor = () => {
                       switch (invoice.status) {
-                        case 'Paid': return '#22c55e';
-                        case 'Pending': return '#eab308';
-                        case 'Overdue': return '#ef4444';
+                        case InvoiceStatus.Paid: return '#22c55e';
+                        case InvoiceStatus.Pending: return '#eab308';
+                        case InvoiceStatus.Overdue: return '#ef4444';
+                        case InvoiceStatus.Cancelled: return '#737373';
                         default: return '#737373';
+                      }
+                    };
+
+                    const getStatusText = () => {
+                      switch (invoice.status) {
+                        case InvoiceStatus.Paid: return 'PAID';
+                        case InvoiceStatus.Pending: return 'PENDING';
+                        case InvoiceStatus.Overdue: return 'OVERDUE';
+                        case InvoiceStatus.Cancelled: return 'CANCELLED';
+                        default: return 'UNKNOWN';
                       }
                     };
                     
                     return (
                       <View key={invoice.id} style={styles.invoiceItem}>
                         <View style={styles.invoiceLeft}>
-                          <Text style={styles.invoiceService}>{invoice.description}</Text>
+                          <Text style={styles.invoiceService}>{invoice.serviceDescription}</Text>
                           <Text style={styles.invoiceDetails}>
-                            {invoice.invoiceNumber} • {new Date(invoice.issueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {invoice.invoiceNumber} • {new Date(invoice.invoiceDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                           </Text>
                         </View>
                         <View style={styles.invoiceRight}>
                           <Text style={styles.invoiceAmount}>
-                            ${invoice.totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ${invoice.amount.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </Text>
                           <View style={[styles.invoiceStatus, { backgroundColor: getStatusColor() }]}>
-                            <Text style={styles.invoiceStatusText}>{invoice.status.toUpperCase()}</Text>
+                            <Text style={styles.invoiceStatusText}>{getStatusText()}</Text>
                           </View>
                         </View>
                       </View>
@@ -448,7 +565,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
             ) : (
               promotions.map((promo) => {
                 const isExpired = !promo.isActive || new Date(promo.endDate) < new Date();
-                const isLimitReached = promo.usageLimit && promo.usageCount >= promo.usageLimit;
+                const isLimitReached = promo.maxRedemptions && promo.currentRedemptions >= promo.maxRedemptions;
                 
                 return (
                   <View 
@@ -460,7 +577,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                   >
                     {!isExpired && !isLimitReached && <View style={styles.promoGlow} />}
                     <Text style={isExpired || isLimitReached ? styles.promoTitleExpired : styles.promoTitle}>
-                      {promo.name}
+                      {promo.title}
                     </Text>
                     <Text style={isExpired || isLimitReached ? styles.promoDescriptionExpired : styles.promoDescription}>
                       {promo.description}
@@ -471,7 +588,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
                           {isLimitReached ? 'LIMIT REACHED' : 'EXPIRED'}
                         </Text>
                       ) : (
-                        <Text style={styles.promoCode}>CODE: {promo.code}</Text>
+                        <Text style={styles.promoCode}>CODE: {promo.promoCode}</Text>
                       )}
                     </View>
                   </View>
@@ -708,6 +825,146 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, initialSection, onBack,
         } 
       />
       {renderContent()}
+
+      {/* Add Payment Method Modal */}
+      <Modal
+        visible={showAddCardModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setShowAddCardModal(false);
+          resetCardForm();
+        }}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>ADD PAYMENT METHOD</Text>
+              <TouchableOpacity onPress={() => {
+                setShowAddCardModal(false);
+                resetCardForm();
+              }}>
+                <Icon name="x" size={20} color="#737373" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll} contentContainerStyle={styles.modalScrollContent}>
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>CARDHOLDER NAME</Text>
+                <TextInput
+                  style={styles.input}
+                  value={cardHolderName}
+                  onChangeText={setCardHolderName}
+                  placeholder="John Doe"
+                  placeholderTextColor="#404040"
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>CARD NUMBER</Text>
+                <TextInput
+                  style={styles.input}
+                  value={cardNumber}
+                  onChangeText={(text) => {
+                    handleCardNumberChange(text);
+                    setCardType(detectCardType(text));
+                  }}
+                  placeholder="1234 5678 9012 3456"
+                  placeholderTextColor="#404040"
+                  keyboardType="number-pad"
+                  maxLength={19}
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>MONTH</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={expiryMonth}
+                    onChangeText={(text) => {
+                      const cleaned = text.replace(/[^0-9]/g, '');
+                      if (cleaned === '' || (parseInt(cleaned) >= 1 && parseInt(cleaned) <= 12)) {
+                        setExpiryMonth(cleaned.slice(0, 2));
+                      }
+                    }}
+                    placeholder="MM"
+                    placeholderTextColor="#404040"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                  />
+                </View>
+
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>YEAR</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={expiryYear}
+                    onChangeText={(text) => {
+                      const cleaned = text.replace(/[^0-9]/g, '');
+                      setExpiryYear(cleaned.slice(0, 4));
+                    }}
+                    placeholder="YYYY"
+                    placeholderTextColor="#404040"
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.inputLabel}>BILLING ADDRESS (OPTIONAL)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={billingAddress}
+                  onChangeText={setBillingAddress}
+                  placeholder="123 Main St, City, State ZIP"
+                  placeholderTextColor="#404040"
+                  multiline
+                />
+              </View>
+
+              <TouchableOpacity 
+                style={styles.checkboxRow}
+                onPress={() => setSetAsDefault(!setAsDefault)}
+              >
+                <View style={[styles.checkbox, setAsDefault && styles.checkboxChecked]}>
+                  {setAsDefault && <Icon name="check" size={12} color="#0a0a0a" />}
+                </View>
+                <Text style={styles.checkboxLabel}>Set as default payment method</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowAddCardModal(false);
+                  resetCardForm();
+                }}
+              >
+                <Text style={styles.modalCancelText}>CANCEL</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.modalSaveButton}
+                onPress={handleAddPaymentMethod}
+                disabled={addingCard}
+              >
+                {addingCard ? (
+                  <ActivityIndicator size="small" color="#0a0a0a" />
+                ) : (
+                  <Text style={styles.modalSaveText}>ADD CARD</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -836,12 +1093,24 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     gap: 12,
+    marginBottom: 20,
   },
   inputLabel: {
     fontSize: 9,
-    color: '#737373',
+    color: '#a3a3a3',
     letterSpacing: 2,
-    fontWeight: '600',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  input: {
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: '#404040',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   textInput: {
     borderBottomWidth: 1,
@@ -1257,6 +1526,123 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#737373',
     letterSpacing: 0.3,
+  },
+  addCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+  },
+  addCardButtonText: {
+    fontSize: 10,
+    color: '#0a0a0a',
+    letterSpacing: 1.5,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: '#262626',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#171717',
+  },
+  modalTitle: {
+    fontSize: 14,
+    color: '#fff',
+    letterSpacing: 2,
+    fontWeight: '600',
+  },
+  modalScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+  modalScrollContent: {
+    padding: 24,
+    paddingBottom: 32,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 1,
+    borderColor: '#404040',
+    backgroundColor: '#0a0a0a',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  checkboxLabel: {
+    fontSize: 10,
+    color: '#d4d4d4',
+    letterSpacing: 0.5,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 24,
+    borderTopWidth: 1,
+    borderTopColor: '#171717',
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 16,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#404040',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelText: {
+    fontSize: 10,
+    color: '#737373',
+    letterSpacing: 2,
+    fontWeight: '700',
+  },
+  modalSaveButton: {
+    flex: 1,
+    paddingVertical: 16,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  modalSaveText: {
+    fontSize: 10,
+    color: '#0a0a0a',
+    letterSpacing: 2,
+    fontWeight: '700',
   },
 });
 

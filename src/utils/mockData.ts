@@ -1,9 +1,9 @@
 import { UserDto } from '../services/authService';
-import { Booking, BookingStatus, MoneyDto } from '../services/bookingsService';
+import { Booking, BookingStatus, MoneyDto, ServiceCategory } from '../services/bookingsService';
 import { AssetListDto } from '../services/assetsService';
-import { Notification } from '../services/notificationsService';
+import { Notification, NotificationType } from '../services/notificationsService';
 import { PaymentMethod } from '../services/paymentMethodsService';
-import { Invoice } from '../services/invoicesService';
+import { Invoice, InvoiceStatus } from '../services/invoicesService';
 import { Promotion } from '../services/promotionsService';
 
 // Mock User Data
@@ -30,7 +30,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'avi-1',
       name: 'Airbus H130',
-      category: 'AVIATION',
+      category: ServiceCategory.Aviation,
       imageUrl: 'https://picsum.photos/800/600?grayscale',
       hourlyRate: createMoney(2200),
       isAvailable: true,
@@ -38,7 +38,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'avi-2',
       name: 'Pilatus PC-12 NGX',
-      category: 'AVIATION',
+      category: ServiceCategory.Aviation,
       imageUrl: 'https://picsum.photos/801/600?grayscale',
       hourlyRate: createMoney(3500),
       isAvailable: true,
@@ -48,7 +48,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'chauf-1',
       name: 'Mercedes-Maybach S-Class',
-      category: 'CHAUFFEUR',
+      category: ServiceCategory.Chauffeur,
       imageUrl: 'https://picsum.photos/802/600?grayscale',
       hourlyRate: createMoney(150),
       isAvailable: true,
@@ -56,7 +56,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'chauf-2',
       name: 'Range Rover Autobiography',
-      category: 'CHAUFFEUR',
+      category: ServiceCategory.Chauffeur,
       imageUrl: 'https://picsum.photos/803/600?grayscale',
       hourlyRate: createMoney(180),
       isAvailable: true,
@@ -66,7 +66,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'arm-1',
       name: 'Toyota Land Cruiser 300 (B6)',
-      category: 'ARMOURED',
+      category: ServiceCategory.Armoured,
       imageUrl: 'https://picsum.photos/804/600?grayscale',
       hourlyRate: createMoney(450),
       isAvailable: true,
@@ -74,7 +74,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'arm-2',
       name: 'Cadillac Escalade (B7)',
-      category: 'ARMOURED',
+      category: ServiceCategory.Armoured,
       imageUrl: 'https://picsum.photos/805/600?grayscale',
       hourlyRate: createMoney(750),
       isAvailable: false,
@@ -84,7 +84,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'prot-1',
       name: 'Close Protection Officer (CPO)',
-      category: 'PROTECTION',
+      category: ServiceCategory.Protection,
       imageUrl: 'https://picsum.photos/806/600?grayscale',
       hourlyRate: createMoney(120),
       isAvailable: true,
@@ -92,7 +92,7 @@ export const MOCK_ASSETS: { [key: string]: AssetListDto[] } = {
     {
       id: 'prot-2',
       name: 'Tactical Support Team',
-      category: 'PROTECTION',
+      category: ServiceCategory.Protection,
       imageUrl: 'https://picsum.photos/807/600?grayscale',
       hourlyRate: createMoney(500),
       isAvailable: true,
@@ -152,7 +152,7 @@ export const MOCK_BOOKINGS: Booking[] = [
 export const MOCK_NOTIFICATIONS: Notification[] = [
   {
     id: 'notif-1',
-    type: 'BookingConfirmed',
+    type: NotificationType.BookingConfirmed,
     title: 'Booking Confirmed',
     text: 'Your aviation service ATL-2024-001 has been confirmed.',
     isUrgent: false,
@@ -161,7 +161,7 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
   },
   {
     id: 'notif-2',
-    type: 'General',
+    type: NotificationType.General,
     title: 'Upcoming Service',
     text: 'Your chauffeur service is scheduled for today at 3:00 PM.',
     isUrgent: true,
@@ -170,7 +170,7 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
   },
   {
     id: 'notif-3',
-    type: 'General',
+    type: NotificationType.General,
     title: 'Welcome to ATLAS',
     text: 'Thank you for choosing ATLAS Global Private Services. Your account is ready.',
     isUrgent: false,
@@ -179,7 +179,7 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
   },
   {
     id: 'notif-4',
-    type: 'General',
+    type: NotificationType.General,
     title: 'Service Completed',
     text: 'Your armoured transport service has been completed. Please rate your experience.',
     isUrgent: false,
@@ -217,14 +217,15 @@ export const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
   {
     id: 'pm-1',
     userId: 'guest-user-id',
-    type: 'CreditCard',
-    provider: 'American Express',
-    last4: '8849',
+    type: 0, // CreditCard
+    cardType: 'American Express',
+    last4Digits: '8849',
     expiryMonth: 9,
     expiryYear: 2028,
-    holderName: 'Guest User',
+    cardHolderName: 'Guest User',
     isDefault: true,
     isActive: true,
+    isExpired: false,
     createdAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
     updatedAt: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
   },
@@ -234,74 +235,40 @@ export const MOCK_PAYMENT_METHODS: PaymentMethod[] = [
 export const MOCK_INVOICES: Invoice[] = [
   {
     id: 'inv-1',
+    invoiceNumber: 'INV-2024-001',
     userId: 'guest-user-id',
     bookingId: 'booking-1',
-    invoiceNumber: 'INV-2024-001',
-    amount: 85000,
-    tax: 8500,
-    totalAmount: 93500,
-    status: 'Paid',
-    issueDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    serviceDescription: 'Aviation Service - Gulfstream G650ER',
+    amount: createMoney(93500),
+    invoiceDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    paidDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    description: 'Aviation Service - Gulfstream G650ER',
-    lineItems: [
-      {
-        description: 'Gulfstream G650ER Charter',
-        quantity: 10,
-        unitPrice: 8500,
-        amount: 85000,
-      },
-    ],
-    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    status: InvoiceStatus.Paid,
+    paidAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    paymentReference: 'PAY-2024-001',
   },
   {
     id: 'inv-2',
+    invoiceNumber: 'INV-2024-002',
     userId: 'guest-user-id',
     bookingId: 'booking-3',
-    invoiceNumber: 'INV-2024-002',
-    amount: 2500,
-    tax: 250,
-    totalAmount: 2750,
-    status: 'Paid',
-    issueDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    serviceDescription: 'Armoured Transport - Range Rover Sentinel',
+    amount: createMoney(2750),
+    invoiceDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-    paidDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    description: 'Armoured Transport - Range Rover Sentinel',
-    lineItems: [
-      {
-        description: 'Range Rover Sentinel Service',
-        quantity: 5,
-        unitPrice: 500,
-        amount: 2500,
-      },
-    ],
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    status: InvoiceStatus.Paid,
+    paidAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    paymentReference: 'PAY-2024-002',
   },
   {
     id: 'inv-3',
+    invoiceNumber: 'INV-2024-003',
     userId: 'guest-user-id',
     bookingId: 'booking-4',
-    invoiceNumber: 'INV-2024-003',
-    amount: 6000,
-    tax: 600,
-    totalAmount: 6600,
-    status: 'Pending',
-    issueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    serviceDescription: 'Protection Services - Executive Team Alpha',
+    amount: createMoney(6600),
+    invoiceDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     dueDate: new Date(Date.now() + 13 * 24 * 60 * 60 * 1000).toISOString(),
-    description: 'Protection Services - Executive Team Alpha',
-    lineItems: [
-      {
-        description: 'Executive Protection Team',
-        quantity: 24,
-        unitPrice: 250,
-        amount: 6000,
-      },
-    ],
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    status: InvoiceStatus.Pending,
   },
 ];
 
@@ -317,36 +284,33 @@ export const getMockInvoices = (): Invoice[] => {
 export const MOCK_PROMOTIONS: Promotion[] = [
   {
     id: 'promo-mock-1',
-    code: 'DEMO-GUEST-ONLY',
-    name: 'Sample Aviation Offer',
+    title: 'Sample Aviation Offer',
     description: 'This is a sample promotion. Create an account to view real offers and exclusive benefits.',
-    discountType: 'Percentage',
-    discountValue: 15,
-    minPurchaseAmount: 5000,
-    maxDiscountAmount: 2000,
+    promoCode: 'DEMO-GUEST-ONLY',
     startDate: new Date(2024, 10, 1).toISOString(),
     endDate: new Date(2025, 11, 31).toISOString(),
-    usageLimit: 0,
-    usageCount: 0,
+    discountType: 0, // Percentage
+    discountValue: 15,
+    serviceCategory: 0, // Aviation
+    maxRedemptions: 0,
+    currentRedemptions: 0,
     isActive: false, // Not active for guests
-    applicableAssetTypes: ['AVIATION'],
     createdAt: new Date(2024, 10, 1).toISOString(),
     updatedAt: new Date(2024, 10, 1).toISOString(),
   },
   {
     id: 'promo-mock-2',
-    code: 'DEMO-PREVIEW',
-    name: 'Sample Transport Discount',
+    title: 'Sample Transport Discount',
     description: 'Sign up to unlock real promotions and special member-only benefits.',
-    discountType: 'Percentage',
-    discountValue: 20,
-    minPurchaseAmount: 1000,
+    promoCode: 'DEMO-PREVIEW',
     startDate: new Date(2024, 11, 1).toISOString(),
     endDate: new Date(2025, 11, 31).toISOString(),
-    usageLimit: 0,
-    usageCount: 0,
+    discountType: 0, // Percentage
+    discountValue: 20,
+    serviceCategory: 2, // Armoured
+    maxRedemptions: 0,
+    currentRedemptions: 0,
     isActive: false, // Not active for guests
-    applicableAssetTypes: ['ARMOURED'],
     createdAt: new Date(2024, 11, 1).toISOString(),
     updatedAt: new Date(2024, 11, 1).toISOString(),
   },

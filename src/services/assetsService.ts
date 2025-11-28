@@ -18,48 +18,51 @@ export interface AssetSpecsDto {
   specialties?: string[];
 }
 
+export enum ServiceCategory {
+  Aviation = 0,
+  Chauffeur = 1,
+  Armoured = 2,
+  Protection = 3
+}
+
 export interface Asset {
   id: string;
   name: string;
-  category: string;
+  category: ServiceCategory;
   description: string;
   imageUrl?: string;
   hourlyRate: MoneyDto;
   isAvailable: boolean;
   specs?: AssetSpecsDto;
+  createdAt: string;
 }
 
 export interface AssetListDto {
   id: string;
   name: string;
-  category: string;
+  category: ServiceCategory;
   imageUrl?: string;
   hourlyRate: MoneyDto;
   isAvailable: boolean;
 }
 
 class AssetsService {
-  private async getAuthHeaders(includeContentType: boolean = true): Promise<Record<string, string>> {
-    const token = await AsyncStorage.getItem('accessToken');
-    return {
-      ...(includeContentType ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  }
-
   async getAssets(params?: {
-    category?: string;
+    category?: number;
     isAvailable?: boolean;
   }): Promise<AssetListDto[]> {
     try {
       const queryParams = new URLSearchParams();
-      if (params?.category) queryParams.append('category', params.category);
+      if (params?.category !== undefined) queryParams.append('category', params.category.toString());
       if (params?.isAvailable !== undefined) queryParams.append('isAvailable', params.isAvailable.toString());
 
       const url = `${API_URL}/assets${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       console.log('🔵 ASSETS REQUEST:', url);
 
-      const headers = await this.getAuthHeaders(false); // GET request, no Content-Type
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -87,7 +90,10 @@ class AssetsService {
       const url = `${API_URL}/assets/${id}`;
       console.log('🔵 ASSET DETAIL REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,

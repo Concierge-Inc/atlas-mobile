@@ -5,28 +5,29 @@ const API_URL = Config.API_URL || 'http://localhost:5001/api';
 
 export interface PaymentMethod {
   id: string;
-  userId: string;
-  type: 'CreditCard' | 'DebitCard' | 'BankAccount' | 'DigitalWallet';
-  provider: string;
-  last4: string;
-  expiryMonth?: number;
-  expiryYear?: number;
-  holderName: string;
+  userId?: string;
+  type: number; // PaymentMethodType enum
+  cardType: string;
+  last4Digits: string;
+  cardHolderName: string;
+  expiryMonth: number;
+  expiryYear: number;
   isDefault: boolean;
   isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isExpired?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AddPaymentMethodRequest {
-  type: 'CreditCard' | 'DebitCard' | 'BankAccount' | 'DigitalWallet';
-  provider: string;
-  cardNumber: string;
-  expiryMonth?: number;
-  expiryYear?: number;
-  cvv: string;
-  holderName: string;
-  isDefault?: boolean;
+  type: number; // PaymentMethodType enum: 0=CreditCard, 1=DebitCard, 2=BankAccount, 3=DigitalWallet
+  cardType: string; // e.g., "Visa", "Mastercard", "Amex"
+  last4Digits: string;
+  cardHolderName: string;
+  expiryMonth: number;
+  expiryYear: number;
+  billingAddress?: string;
+  setAsDefault: boolean;
 }
 
 class PaymentMethodsService {
@@ -43,7 +44,10 @@ class PaymentMethodsService {
       const url = `${API_URL}/paymentmethods`;
       console.log('🔵 PAYMENT METHODS REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -66,7 +70,7 @@ class PaymentMethodsService {
     }
   }
 
-  async addPaymentMethod(paymentData: AddPaymentMethodRequest): Promise<PaymentMethod> {
+  async addPaymentMethod(paymentData: AddPaymentMethodRequest): Promise<string> {
     try {
       const url = `${API_URL}/paymentmethods`;
       console.log('🔵 ADD PAYMENT METHOD REQUEST:', url, { ...paymentData, cardNumber: '****', cvv: '***' });
@@ -86,21 +90,24 @@ class PaymentMethodsService {
         throw new Error(errorData.message || 'Failed to add payment method');
       }
 
-      const data = await response.json() as PaymentMethod;
-      console.log('✅ ADD PAYMENT METHOD SUCCESS:', data.id);
-      return data;
+      const paymentMethodId = await response.json() as string;
+      console.log('✅ ADD PAYMENT METHOD SUCCESS:', paymentMethodId);
+      return paymentMethodId;
     } catch (error) {
       console.error('🔴 ADD PAYMENT METHOD SERVICE ERROR:', error);
       throw error;
     }
   }
 
-  async setDefaultPaymentMethod(paymentMethodId: string): Promise<PaymentMethod> {
+  async setDefaultPaymentMethod(paymentMethodId: string): Promise<void> {
     try {
       const url = `${API_URL}/paymentmethods/${paymentMethodId}/set-default`;
       console.log('🔵 SET DEFAULT PAYMENT METHOD REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'PUT',
         headers,
@@ -114,9 +121,7 @@ class PaymentMethodsService {
         throw new Error(errorData.message || 'Failed to set default payment method');
       }
 
-      const data = await response.json() as PaymentMethod;
-      console.log('✅ SET DEFAULT PAYMENT METHOD SUCCESS:', data.id);
-      return data;
+      console.log('✅ SET DEFAULT PAYMENT METHOD SUCCESS');
     } catch (error) {
       console.error('🔴 SET DEFAULT PAYMENT METHOD SERVICE ERROR:', error);
       throw error;

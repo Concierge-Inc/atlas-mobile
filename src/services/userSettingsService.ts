@@ -4,53 +4,37 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = Config.API_URL || 'http://localhost:5001/api';
 
 export interface UserSettings {
-  id: string;
   userId: string;
-  // Security Settings
-  twoFactorEnabled: boolean;
-  biometricAuthEnabled: boolean;
-  sessionTimeout: number;
-  // App Settings
-  language: string;
-  theme: 'Light' | 'Dark' | 'System';
-  currency: string;
-  timezone: string;
-  // Notification Preferences
-  emailNotifications: boolean;
-  pushNotifications: boolean;
-  smsNotifications: boolean;
-  bookingNotifications: boolean;
-  promotionalNotifications: boolean;
-  securityAlerts: boolean;
-  // Privacy Settings
-  shareDataForAnalytics: boolean;
-  shareDataForMarketing: boolean;
-  createdAt: string;
-  updatedAt: string;
+  faceIdEnabled: boolean;
+  pushNotificationsEnabled: boolean;
+  stealthModeEnabled: boolean;
+  locationTrackingEnabled: boolean;
+  autoUpdateEnabled: boolean;
+  dataSyncEnabled: boolean;
+  analyticsEnabled: boolean;
+  hapticsEnabled: boolean;
+  preferredLanguage?: string;
+  preferredCurrency?: string;
+  timeZone?: string;
 }
 
 export interface UpdateSecuritySettingsRequest {
-  twoFactorEnabled?: boolean;
-  biometricAuthEnabled?: boolean;
-  sessionTimeout?: number;
+  faceIdEnabled?: boolean;
+  stealthModeEnabled?: boolean;
 }
 
 export interface UpdateAppSettingsRequest {
-  language?: string;
-  theme?: 'Light' | 'Dark' | 'System';
-  currency?: string;
-  timezone?: string;
+  locationTracking?: boolean;
+  autoUpdate?: boolean;
+  dataSync?: boolean;
+  analytics?: boolean;
+  haptics?: boolean;
 }
 
 export interface UpdatePreferencesRequest {
-  emailNotifications?: boolean;
-  pushNotifications?: boolean;
-  smsNotifications?: boolean;
-  bookingNotifications?: boolean;
-  promotionalNotifications?: boolean;
-  securityAlerts?: boolean;
-  shareDataForAnalytics?: boolean;
-  shareDataForMarketing?: boolean;
+  language?: string;
+  currency?: string;
+  timeZone?: string;
 }
 
 class UserSettingsService {
@@ -67,7 +51,10 @@ class UserSettingsService {
       const url = `${API_URL}/usersettings`;
       console.log('🔵 USER SETTINGS REQUEST:', url);
 
-      const headers = await this.getAuthHeaders();
+      const token = await AsyncStorage.getItem('accessToken');
+      const headers: Record<string, string> = {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -90,7 +77,7 @@ class UserSettingsService {
     }
   }
 
-  async updateSecuritySettings(settingsData: UpdateSecuritySettingsRequest): Promise<UserSettings> {
+  async updateSecuritySettings(settingsData: UpdateSecuritySettingsRequest): Promise<void> {
     try {
       const url = `${API_URL}/usersettings/security`;
       console.log('🔵 UPDATE SECURITY SETTINGS REQUEST:', url, settingsData);
@@ -110,16 +97,14 @@ class UserSettingsService {
         throw new Error(errorData.message || 'Failed to update security settings');
       }
 
-      const data = await response.json() as UserSettings;
       console.log('✅ UPDATE SECURITY SETTINGS SUCCESS');
-      return data;
     } catch (error) {
       console.error('🔴 UPDATE SECURITY SETTINGS SERVICE ERROR:', error);
       throw error;
     }
   }
 
-  async updateAppSettings(settingsData: UpdateAppSettingsRequest): Promise<UserSettings> {
+  async updateAppSettings(settingsData: UpdateAppSettingsRequest): Promise<void> {
     try {
       const url = `${API_URL}/usersettings/app`;
       console.log('🔵 UPDATE APP SETTINGS REQUEST:', url, settingsData);
@@ -139,16 +124,14 @@ class UserSettingsService {
         throw new Error(errorData.message || 'Failed to update app settings');
       }
 
-      const data = await response.json() as UserSettings;
       console.log('✅ UPDATE APP SETTINGS SUCCESS');
-      return data;
     } catch (error) {
       console.error('🔴 UPDATE APP SETTINGS SERVICE ERROR:', error);
       throw error;
     }
   }
 
-  async updatePreferences(settingsData: UpdatePreferencesRequest): Promise<UserSettings> {
+  async updatePreferences(settingsData: UpdatePreferencesRequest): Promise<void> {
     try {
       const url = `${API_URL}/usersettings/preferences`;
       console.log('🔵 UPDATE PREFERENCES REQUEST:', url, settingsData);
@@ -168,9 +151,7 @@ class UserSettingsService {
         throw new Error(errorData.message || 'Failed to update preferences');
       }
 
-      const data = await response.json() as UserSettings;
       console.log('✅ UPDATE PREFERENCES SUCCESS');
-      return data;
     } catch (error) {
       console.error('🔴 UPDATE PREFERENCES SERVICE ERROR:', error);
       throw error;
