@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Config from 'react-native-config';
 
-const API_URL = Config.API_URL || 'http://localhost:5000/api';
+const API_URL = Config.API_URL || 'http://localhost:5001/api';
 const USE_MOCK_AUTH = Config.USE_MOCK_AUTH === 'true' || false;
 
 // Types matching Atlas.Core backend
@@ -90,6 +90,8 @@ class AuthService {
 
     try {
       console.log('🔵 REGISTER REQUEST:', JSON.stringify(request, null, 2));
+      console.log('🔵 API_URL:', API_URL);
+      console.log('🔵 FULL URL:', `${API_URL}/auth/register`);
       
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
@@ -100,10 +102,13 @@ class AuthService {
       });
 
       console.log('🔵 REGISTER RESPONSE STATUS:', response.status);
+      console.log('🔵 REGISTER RESPONSE OK:', response.ok);
+      console.log('🔵 REGISTER RESPONSE HEADERS:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2));
 
       if (!response.ok) {
         const responseText = await response.text();
         console.log('🔴 RAW REGISTER ERROR RESPONSE:', responseText);
+        console.log('🔴 RESPONSE TEXT LENGTH:', responseText.length);
         
         try {
           const errorData = JSON.parse(responseText);
@@ -118,6 +123,7 @@ class AuthService {
           }
         } catch (parseError) {
           console.log('🔴 Failed to parse error, using raw text');
+          console.log('🔴 Parse error:', parseError);
         }
         
         throw new Error(responseText || 'Registration failed');
@@ -131,7 +137,10 @@ class AuthService {
       
       return data;
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('🔴 REGISTRATION ERROR:', error);
+      console.error('🔴 ERROR TYPE:', error?.constructor?.name);
+      console.error('🔴 ERROR MESSAGE:', error?.message);
+      console.error('🔴 ERROR STACK:', error?.stack);
       throw error;
     }
   }
